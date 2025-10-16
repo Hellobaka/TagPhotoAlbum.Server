@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "C#: TagPhotoAlbum.Server [http]",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}\\TagPhotoAlbum.Server.csproj",
+            "launchConfigurationId": "TargetFramework=;http"
+        }
+    ]
+}

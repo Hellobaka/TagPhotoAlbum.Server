@@ -1,0 +1,6 @@
+@TagPhotoAlbum.Server_HostAddress = http://localhost:5085
+
+GET {{TagPhotoAlbum.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
