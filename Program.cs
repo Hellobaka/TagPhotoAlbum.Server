@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TagPhotoAlbum.Server.Data;
@@ -48,8 +49,13 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 
+// Configure PhotoStorage options
+builder.Services.Configure<PhotoStorageOptions>(
+    builder.Configuration.GetSection("PhotoStorage"));
+
 // Register services
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<PhotoStorageService>();
 
 var app = builder.Build();
 
@@ -60,6 +66,23 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Enable static file serving for uploads directory
+app.UseStaticFiles();
+
+// Enable static file serving for external storage
+var externalStoragePaths = builder.Configuration.GetSection("PhotoStorage:ExternalStoragePaths").Get<string[]>() ?? Array.Empty<string>();
+foreach (var storagePath in externalStoragePaths)
+{
+    if (!string.IsNullOrEmpty(storagePath) && Directory.Exists(storagePath))
+    {
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(storagePath),
+            RequestPath = "/external"
+        });
+    }
+}
 
 app.UseCors();
 

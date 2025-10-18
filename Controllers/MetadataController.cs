@@ -51,6 +51,38 @@ public class MetadataController : ControllerBase
         }
     }
 
+    [HttpGet("tags/count")]
+    public async Task<ActionResult<ApiResponse<int>>> GetTagsCount()
+    {
+        try
+        {
+            var photos = await _context.Photos.ToListAsync();
+            var tagsCount = photos
+                .SelectMany(p => p.Tags)
+                .Distinct()
+                .Count();
+
+            return Ok(new ApiResponse<int>
+            {
+                Success = true,
+                Data = tagsCount
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<int>
+            {
+                Success = false,
+                Error = new ErrorResponse
+                {
+                    Code = "SERVER_ERROR",
+                    Message = "获取标签数量失败",
+                    Details = ex.Message
+                }
+            });
+        }
+    }
+
     [HttpGet("folders")]
     public async Task<ActionResult<ApiResponse<List<string>>>> GetFolders()
     {
@@ -84,6 +116,38 @@ public class MetadataController : ControllerBase
         }
     }
 
+    [HttpGet("folders/count")]
+    public async Task<ActionResult<ApiResponse<int>>> GetFoldersCount()
+    {
+        try
+        {
+            var foldersCount = await _context.Photos
+                .Where(p => !string.IsNullOrEmpty(p.Folder))
+                .Select(p => p.Folder)
+                .Distinct()
+                .CountAsync();
+
+            return Ok(new ApiResponse<int>
+            {
+                Success = true,
+                Data = foldersCount
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<int>
+            {
+                Success = false,
+                Error = new ErrorResponse
+                {
+                    Code = "SERVER_ERROR",
+                    Message = "获取文件夹数量失败",
+                    Details = ex.Message
+                }
+            });
+        }
+    }
+
     [HttpGet("locations")]
     public async Task<ActionResult<ApiResponse<List<string>>>> GetLocations()
     {
@@ -111,6 +175,38 @@ public class MetadataController : ControllerBase
                 {
                     Code = "SERVER_ERROR",
                     Message = "获取地点失败",
+                    Details = ex.Message
+                }
+            });
+        }
+    }
+
+    [HttpGet("locations/count")]
+    public async Task<ActionResult<ApiResponse<int>>> GetLocationsCount()
+    {
+        try
+        {
+            var locationsCount = await _context.Photos
+                .Where(p => !string.IsNullOrEmpty(p.Location))
+                .Select(p => p.Location)
+                .Distinct()
+                .CountAsync();
+
+            return Ok(new ApiResponse<int>
+            {
+                Success = true,
+                Data = locationsCount
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<int>
+            {
+                Success = false,
+                Error = new ErrorResponse
+                {
+                    Code = "SERVER_ERROR",
+                    Message = "获取地点数量失败",
                     Details = ex.Message
                 }
             });
