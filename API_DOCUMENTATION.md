@@ -144,6 +144,8 @@ Authorization: Bearer {jwt_token}
       "folder": "string",
       "location": "string",
       "date": "string",
+      "fileSizeKB": "number",
+      "exifData": "object",
       "compressedFilePath": "string",
       "hasCompressedImage": "boolean"
     }
