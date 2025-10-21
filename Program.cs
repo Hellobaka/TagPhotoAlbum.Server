@@ -61,6 +61,7 @@ builder.Services.Configure<ImageCompressionOptions>(
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<PhotoStorageService>();
 builder.Services.AddScoped<ImageCompressionService>();
+builder.Services.AddScoped<ExifService>();
 
 var app = builder.Build();
 
@@ -99,8 +100,9 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var compressionService = scope.ServiceProvider.GetRequiredService<ImageCompressionService>();
+    var exifService = scope.ServiceProvider.GetRequiredService<ExifService>();
     context.Database.EnsureCreated();
-    SeedData.Initialize(compressionService, context, externalStoragePaths);
+    SeedData.Initialize(exifService, compressionService, context, externalStoragePaths);
 }
 
 app.MapControllers();

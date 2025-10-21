@@ -7,7 +7,10 @@ namespace TagPhotoAlbum.Server.Data;
 
 public static class SeedData
 {
-    public static void Initialize(ImageCompressionService compressionService, AppDbContext context, string[] externalStoragePaths)
+    public static void Initialize(ExifService exifService,
+        ImageCompressionService compressionService,
+        AppDbContext context,
+        string[] externalStoragePaths)
     {
         if (context.Users.Any() || context.Photos.Any())
         {
@@ -47,7 +50,8 @@ public static class SeedData
                         Tags = [],
                         Description = string.Empty,
                         Location = string.Empty,
-                        FileSizeKB = fileSizeKB
+                        FileSizeKB = fileSizeKB,
+                        ExifData = exifService.ExtractExifData(file)
                     });
                     compressionService.CompressImageAsync(file).Wait();
                 }

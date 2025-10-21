@@ -20,6 +20,8 @@ public class PhotoResponse
 
     public double FileSizeKB { get; set; } // 文件大小，单位为KB
 
+    public string? ExifData { get; set; } // EXIF元数据，JSON格式
+
     public string? CompressedFilePath { get; set; }
 
     public bool HasCompressedImage { get; set; }

@@ -11,6 +11,7 @@ public class Photo
     public string Location { get; set; } = string.Empty;
     public DateTime Date { get; set; } = DateTime.UtcNow;
     public double FileSizeKB { get; set; } // 文件大小，单位为KB
+    public string? ExifData { get; set; } // EXIF元数据，JSON格式
 }
 
 public class Tag
