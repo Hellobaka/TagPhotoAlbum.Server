@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using TagPhotoAlbum.Server.Models;
 
 namespace TagPhotoAlbum.Server.Data;
@@ -9,6 +10,8 @@ public class AppDbContext : DbContext
 
     public DbSet<Photo> Photos { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<Tag> Tags { get; set; }
+    public DbSet<PhotoTag> PhotoTags { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -16,11 +19,20 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Photo>(entity =>
         {
             entity.HasKey(p => p.Id);
-            entity.Property(p => p.Tags)
-                  .HasConversion(
-                      v => string.Join(',', v),
-                      v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
-                  );
+            modelBuilder.Entity<PhotoTag>()
+            .HasKey(pt => new { pt.PhotoId, pt.TagId });
+
+            // 配置 Photo 和 PhotoTag 之间的关系
+            modelBuilder.Entity<PhotoTag>()
+                .HasOne(pt => pt.Photo)
+                .WithMany(p => p.Tags)
+                .HasForeignKey(pt => pt.PhotoId);
+
+            // 配置 Tag 和 PhotoTag 之间的关系
+            modelBuilder.Entity<PhotoTag>()
+                .HasOne(pt => pt.Tag)
+                .WithMany(t => t.PhotoTags)
+                .HasForeignKey(pt => pt.TagId);
         });
 
         // Configure User entity

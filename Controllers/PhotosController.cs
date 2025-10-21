@@ -54,7 +54,7 @@ public class PhotosController : ControllerBase
             if (!string.IsNullOrEmpty(tags))
             {
                 var tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                query = query.Where(p => p.Tags.Any(t => tagList.Contains(t)));
+                query = query.Where(p => p.Tags.Any(t => tagList.Contains(t.Tag.Name)));
             }
 
             // Apply search query filter
@@ -65,7 +65,7 @@ public class PhotosController : ControllerBase
                     p.Description.Contains(searchQuery) ||
                     p.Folder.Contains(searchQuery) ||
                     p.Location.Contains(searchQuery) ||
-                    p.Tags.Any(t => t.Contains(searchQuery))
+                    p.Tags.Any(t => t.Tag.Name.Contains(searchQuery))
                 );
             }
 
@@ -76,10 +76,23 @@ public class PhotosController : ControllerBase
                 .Take(limit)
                 .ToListAsync();
 
+            // 将FilePath转换为URL
+            var photosWithUrls = photos.Select(p => new Photo
+            {
+                Id = p.Id,
+                FilePath = _photoStorageService.GetFileUrl(p.FilePath),
+                Title = p.Title,
+                Description = p.Description,
+                Tags = p.Tags,
+                Folder = p.Folder,
+                Location = p.Location,
+                Date = p.Date
+            }).ToList();
+
             return Ok(new ApiResponse<List<Photo>>
             {
                 Success = true,
-                Data = photos,
+                Data = photosWithUrls,
                 Pagination = new PaginationInfo
                 {
                     Page = page,
@@ -124,10 +137,23 @@ public class PhotosController : ControllerBase
                 });
             }
 
+            // 将FilePath转换为URL
+            var photoWithUrl = new Photo
+            {
+                Id = photo.Id,
+                FilePath = _photoStorageService.GetFileUrl(photo.FilePath),
+                Title = photo.Title,
+                Description = photo.Description,
+                Tags = photo.Tags,
+                Folder = photo.Folder,
+                Location = photo.Location,
+                Date = photo.Date
+            };
+
             return Ok(new ApiResponse<Photo>
             {
                 Success = true,
-                Data = photo
+                Data = photoWithUrl
             });
         }
         catch (Exception ex)
@@ -166,10 +192,23 @@ public class PhotosController : ControllerBase
             _context.Photos.Add(photo);
             await _context.SaveChangesAsync();
 
+            // 将FilePath转换为URL
+            var photoWithUrl = new Photo
+            {
+                Id = photo.Id,
+                FilePath = _photoStorageService.GetFileUrl(photo.FilePath),
+                Title = photo.Title,
+                Description = photo.Description,
+                Tags = photo.Tags,
+                Folder = photo.Folder,
+                Location = photo.Location,
+                Date = photo.Date
+            };
+
             return CreatedAtAction(nameof(GetPhoto), new { id = photo.Id }, new ApiResponse<Photo>
             {
                 Success = true,
-                Data = photo
+                Data = photoWithUrl
             });
         }
         catch (Exception ex)
@@ -223,10 +262,23 @@ public class PhotosController : ControllerBase
 
             await _context.SaveChangesAsync();
 
+            // 将FilePath转换为URL
+            var photoWithUrl = new Photo
+            {
+                Id = photo.Id,
+                FilePath = _photoStorageService.GetFileUrl(photo.FilePath),
+                Title = photo.Title,
+                Description = photo.Description,
+                Tags = photo.Tags,
+                Folder = photo.Folder,
+                Location = photo.Location,
+                Date = photo.Date
+            };
+
             return Ok(new ApiResponse<Photo>
             {
                 Success = true,
-                Data = photo
+                Data = photoWithUrl
             });
         }
         catch (Exception ex)
@@ -301,7 +353,7 @@ public class PhotosController : ControllerBase
         {
             // 使用预设的筛选条件：推荐艺术类照片
             var query = _context.Photos
-                .Where(p => p.Folder == "艺术" || p.Tags.Any(o => o == "艺术") || p.Tags.Any(o => o == "抽象"));
+                .Where(p => p.Folder == "艺术" || p.Tags.Any(o => o.Tag.Name == "艺术") || p.Tags.Any(o => o.Tag.Name == "抽象"));
 
             // 排除已显示的照片ID
             if (!string.IsNullOrEmpty(excludeIds))
@@ -343,10 +395,23 @@ public class PhotosController : ControllerBase
                 .Take(limit)
                 .ToListAsync();
 
+            // 将FilePath转换为URL
+            var photosWithUrls = photos.Select(p => new Photo
+            {
+                Id = p.Id,
+                FilePath = _photoStorageService.GetFileUrl(p.FilePath),
+                Title = p.Title,
+                Description = p.Description,
+                Tags = p.Tags,
+                Folder = p.Folder,
+                Location = p.Location,
+                Date = p.Date
+            }).ToList();
+
             return Ok(new ApiResponse<List<Photo>>
             {
                 Success = true,
-                Data = photos,
+                Data = photosWithUrls,
                 Pagination = new PaginationInfo
                 {
                     Page = page,
@@ -404,7 +469,7 @@ public class PhotosController : ControllerBase
             if (!string.IsNullOrEmpty(tags))
             {
                 var tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                query = query.Where(p => p.Tags.Any(t => tagList.Contains(t)));
+                query = query.Where(p => p.Tags.Any(t => tagList.Contains(t.Tag.Name)));
             }
 
             // Apply search query filter
@@ -415,7 +480,7 @@ public class PhotosController : ControllerBase
                     p.Description.Contains(searchQuery) ||
                     p.Folder.Contains(searchQuery) ||
                     p.Location.Contains(searchQuery) ||
-                    p.Tags.Any(t => t.Contains(searchQuery))
+                    p.Tags.Any(t => t.Tag.Name.Contains(searchQuery))
                 );
             }
 
@@ -426,10 +491,23 @@ public class PhotosController : ControllerBase
                 .Take(limit)
                 .ToListAsync();
 
+            // 将FilePath转换为URL
+            var photosWithUrls = photos.Select(p => new Photo
+            {
+                Id = p.Id,
+                FilePath = _photoStorageService.GetFileUrl(p.FilePath),
+                Title = p.Title,
+                Description = p.Description,
+                Tags = p.Tags,
+                Folder = p.Folder,
+                Location = p.Location,
+                Date = p.Date
+            }).ToList();
+
             return Ok(new ApiResponse<List<Photo>>
             {
                 Success = true,
-                Data = photos,
+                Data = photosWithUrls,
                 Pagination = new PaginationInfo
                 {
                     Page = page,
@@ -510,7 +588,7 @@ public class PhotosController : ControllerBase
                         FilePath = filePath,
                         Title = Path.GetFileNameWithoutExtension(file.FileName),
                         Description = string.Empty,
-                        Tags = new List<string>(),
+                        Tags = [],
                         Folder = folder,
                         Location = string.Empty,
                         Date = DateTime.UtcNow
@@ -523,10 +601,23 @@ public class PhotosController : ControllerBase
 
             await _context.SaveChangesAsync();
 
+            // 将FilePath转换为URL
+            var uploadedPhotosWithUrls = uploadedPhotos.Select(p => new Photo
+            {
+                Id = p.Id,
+                FilePath = _photoStorageService.GetFileUrl(p.FilePath),
+                Title = p.Title,
+                Description = p.Description,
+                Tags = p.Tags,
+                Folder = p.Folder,
+                Location = p.Location,
+                Date = p.Date
+            }).ToList();
+
             return Ok(new ApiResponse<List<Photo>>
             {
                 Success = true,
-                Data = uploadedPhotos,
+                Data = uploadedPhotosWithUrls,
                 Message = $"成功上传 {uploadedPhotos.Count} 张图片"
             });
         }
@@ -559,10 +650,23 @@ public class PhotosController : ControllerBase
                 .OrderByDescending(p => p.Date)
                 .ToList();
 
+            // 将FilePath转换为URL
+            var uncategorizedPhotosWithUrls = uncategorizedPhotos.Select(p => new Photo
+            {
+                Id = p.Id,
+                FilePath = _photoStorageService.GetFileUrl(p.FilePath),
+                Title = p.Title,
+                Description = p.Description,
+                Tags = p.Tags,
+                Folder = p.Folder,
+                Location = p.Location,
+                Date = p.Date
+            }).ToList();
+
             return Ok(new ApiResponse<List<Photo>>
             {
                 Success = true,
-                Data = uncategorizedPhotos
+                Data = uncategorizedPhotosWithUrls
             });
         }
         catch (Exception ex)

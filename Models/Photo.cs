@@ -6,8 +6,25 @@ public class Photo
     public string FilePath { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public List<string> Tags { get; set; } = new();
+    public ICollection<PhotoTag> Tags { get; set; } = [];
     public string Folder { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public DateTime Date { get; set; } = DateTime.UtcNow;
+}
+
+public class Tag
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public ICollection<PhotoTag> PhotoTags { get; set; } // 导航属性到关联表
+}
+
+// PhotoTag (关联表/连接实体)
+public class PhotoTag
+{
+    public int PhotoId { get; set; }
+    public Photo Photo { get; set; }
+
+    public int TagId { get; set; }
+    public Tag Tag { get; set; }
 }

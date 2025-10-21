@@ -33,7 +33,7 @@ public class MetadataController : ControllerBase
             return Ok(new ApiResponse<List<string>>
             {
                 Success = true,
-                Data = tags
+                Data = tags.Select(x => x.Tag.Name).ToList()
             });
         }
         catch (Exception ex)

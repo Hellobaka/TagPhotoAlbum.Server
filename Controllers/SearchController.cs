@@ -39,7 +39,7 @@ public class SearchController : ControllerBase
             var photos = await _context.Photos
                 .Where(p => p.Title.Contains(q) ||
                            p.Description.Contains(q) ||
-                           p.Tags.Any(t => t.Contains(q)) ||
+                           p.Tags.Any(t => t.Tag.Name.Contains(q)) ||
                            p.Folder.Contains(q) ||
                            p.Location.Contains(q))
                 .OrderByDescending(p => p.Date)
