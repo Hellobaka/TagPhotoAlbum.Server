@@ -19,26 +19,36 @@ public class MetadataController : ControllerBase
     }
 
     [HttpGet("tags")]
-    public async Task<ActionResult<ApiResponse<List<string>>>> GetTags()
+    public async Task<ActionResult<ApiResponse<TagsResponse>>> GetTags()
     {
         try
         {
-            var photos = await _context.Photos.ToListAsync();
-            var tags = photos
-                .SelectMany(p => p.Tags)
-                .Distinct()
-                .OrderBy(t => t)
-                .ToList();
+            // 获取每个标签的使用次数
+            var tagCounts = await _context.PhotoTags
+                .GroupBy(pt => pt.Tag.Name)
+                .Select(g => new TagInfo
+                {
+                    Name = g.Key,
+                    Count = g.Count()
+                })
+                .OrderBy(t => t.Name)
+                .ToListAsync();
 
-            return Ok(new ApiResponse<List<string>>
+            var response = new TagsResponse
+            {
+                Tags = tagCounts,
+                TotalCount = tagCounts.Count
+            };
+
+            return Ok(new ApiResponse<TagsResponse>
             {
                 Success = true,
-                Data = tags.Select(x => x.Tag.Name).ToList()
+                Data = response
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<string>>
+            return StatusCode(500, new ApiResponse<TagsResponse>
             {
                 Success = false,
                 Error = new ErrorResponse
@@ -51,37 +61,6 @@ public class MetadataController : ControllerBase
         }
     }
 
-    [HttpGet("tags/count")]
-    public async Task<ActionResult<ApiResponse<int>>> GetTagsCount()
-    {
-        try
-        {
-            var photos = await _context.Photos.ToListAsync();
-            var tagsCount = photos
-                .SelectMany(p => p.Tags)
-                .Distinct()
-                .Count();
-
-            return Ok(new ApiResponse<int>
-            {
-                Success = true,
-                Data = tagsCount
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ApiResponse<int>
-            {
-                Success = false,
-                Error = new ErrorResponse
-                {
-                    Code = "SERVER_ERROR",
-                    Message = "获取标签数量失败",
-                    Details = ex.Message
-                }
-            });
-        }
-    }
 
     [HttpGet("folders")]
     public async Task<ActionResult<ApiResponse<List<string>>>> GetFolders()

@@ -128,7 +128,7 @@ Authorization: Bearer {jwt_token}
 - `folder` (可选): 按文件夹筛选
 - `location` (可选): 按地点筛选
 - `tags` (可选): 按标签筛选，多个标签用逗号分隔
-- `q` (可选): 搜索关键词
+- `searchQuery` (可选): 搜索关键词
 
 响应：
 ```json
@@ -137,7 +137,7 @@ Authorization: Bearer {jwt_token}
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
@@ -206,7 +206,7 @@ photoApi.getPhotosPaginated(1, 20, {
   "success": true,
   "data": {
     "id": "number",
-    "url": "string",
+    "filePath": "string",
     "title": "string",
     "description": "string",
     "tags": ["string"],
@@ -224,13 +224,12 @@ photoApi.getPhotosPaginated(1, 20, {
 请求体：
 ```json
 {
-  "url": "string",
+  "filePath": "string",
   "title": "string",
   "description": "string",
   "tags": ["string"],
   "folder": "string",
-  "location": "string",
-  "date": "string"
+  "location": "string"
 }
 ```
 
@@ -240,7 +239,7 @@ photoApi.getPhotosPaginated(1, 20, {
   "success": true,
   "data": {
     "id": "number",
-    "url": "string",
+    "filePath": "string",
     "title": "string",
     "description": "string",
     "tags": ["string"],
@@ -272,7 +271,7 @@ photoApi.getPhotosPaginated(1, 20, {
   "success": true,
   "data": {
     "id": "number",
-    "url": "string",
+    "filePath": "string",
     "title": "string",
     "description": "string",
     "tags": ["string"],
@@ -297,7 +296,7 @@ photoApi.getPhotosPaginated(1, 20, {
 
 ## 元数据接口
 
-### 获取所有标签
+### 获取所有标签（包含使用次数）
 
 **GET** `/metadata/tags`
 
@@ -305,7 +304,15 @@ photoApi.getPhotosPaginated(1, 20, {
 ```json
 {
   "success": true,
-  "data": ["string"]
+  "data": {
+    "tags": [
+      {
+        "name": "string",
+        "count": "number"
+      }
+    ],
+    "totalCount": "number"
+  }
 }
 ```
 
@@ -321,6 +328,17 @@ photoApi.getPhotosPaginated(1, 20, {
 }
 ```
 
+### 获取文件夹数量
+
+**GET** `/metadata/folders/count`
+
+响应：
+```json
+{
+  "success": true,
+  "data": "number"
+}
+```
 
 ### 获取所有地点
 
@@ -331,6 +349,18 @@ photoApi.getPhotosPaginated(1, 20, {
 {
   "success": true,
   "data": ["string"]
+}
+```
+
+### 获取地点数量
+
+**GET** `/metadata/locations/count`
+
+响应：
+```json
+{
+  "success": true,
+  "data": "number"
 }
 ```
 
@@ -350,7 +380,7 @@ photoApi.getPhotosPaginated(1, 20, {
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
@@ -378,7 +408,7 @@ photoApi.getPhotosPaginated(1, 20, {
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
@@ -427,7 +457,7 @@ GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
@@ -451,7 +481,7 @@ GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
@@ -512,9 +542,11 @@ GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
    - `createPhoto(photoData)`: 创建照片
    - `updatePhoto(id, photoData)`: 更新照片
    - `deletePhoto(id)`: 删除照片
-   - `getTags()`: 获取所有标签
+   - `getTags()`: 获取所有标签（包含使用次数）
    - `getFolders()`: 获取所有文件夹
+   - `getFoldersCount()`: 获取文件夹数量
    - `getLocations()`: 获取所有地点
+   - `getLocationsCount()`: 获取地点数量
    - `searchPhotos(query)`: 搜索照片
    - `getRecommendPhotos(page, limit, excludeIds)`: 获取推荐照片（支持分页和去重）
    - `uploadPhotos(formData)`: 上传图片（支持多文件）

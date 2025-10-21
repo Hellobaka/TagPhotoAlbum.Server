@@ -20,7 +20,7 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(p => p.Id);
             modelBuilder.Entity<PhotoTag>()
-            .HasKey(pt => new { pt.PhotoId, pt.TagId });
+                .HasKey(pt => new { pt.PhotoId, pt.TagId });
 
             // 配置 Photo 和 PhotoTag 之间的关系
             modelBuilder.Entity<PhotoTag>()

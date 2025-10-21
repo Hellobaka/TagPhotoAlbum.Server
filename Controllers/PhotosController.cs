@@ -22,7 +22,7 @@ public class PhotosController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<List<Photo>>>> GetPhotos(
+    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetPhotos(
         [FromQuery] int page = 1,
         [FromQuery] int limit = 20,
         [FromQuery] string? folder = null,
@@ -71,25 +71,26 @@ public class PhotosController : ControllerBase
 
             var total = await query.CountAsync();
             var photos = await query
+                .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
                 .OrderByDescending(p => p.Date)
                 .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
 
-            // 将FilePath转换为URL
-            var photosWithUrls = photos.Select(p => new Photo
+            // 将FilePath转换为URL并转换为PhotoResponse
+            var photosWithUrls = photos.Select(p => new PhotoResponse
             {
                 Id = p.Id,
                 FilePath = _photoStorageService.GetFileUrl(p.FilePath),
                 Title = p.Title,
                 Description = p.Description,
-                Tags = p.Tags,
+                Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date
             }).ToList();
 
-            return Ok(new ApiResponse<List<Photo>>
+            return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
                 Data = photosWithUrls,
@@ -104,7 +105,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<Photo>>
+            return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
                 Error = new ErrorResponse
@@ -118,7 +119,7 @@ public class PhotosController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<Photo>>> GetPhoto(int id)
+    public async Task<ActionResult<ApiResponse<PhotoResponse>>> GetPhoto(int id)
     {
         try
         {
@@ -126,7 +127,7 @@ public class PhotosController : ControllerBase
 
             if (photo == null)
             {
-                return NotFound(new ApiResponse<Photo>
+                return NotFound(new ApiResponse<PhotoResponse>
                 {
                     Success = false,
                     Error = new ErrorResponse
@@ -137,20 +138,20 @@ public class PhotosController : ControllerBase
                 });
             }
 
-            // 将FilePath转换为URL
-            var photoWithUrl = new Photo
+            // 将FilePath转换为URL并转换为PhotoResponse
+            var photoWithUrl = new PhotoResponse
             {
                 Id = photo.Id,
                 FilePath = _photoStorageService.GetFileUrl(photo.FilePath),
                 Title = photo.Title,
                 Description = photo.Description,
-                Tags = photo.Tags,
+                Tags = photo.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = photo.Folder,
                 Location = photo.Location,
                 Date = photo.Date
             };
 
-            return Ok(new ApiResponse<Photo>
+            return Ok(new ApiResponse<PhotoResponse>
             {
                 Success = true,
                 Data = photoWithUrl
@@ -158,7 +159,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<Photo>
+            return StatusCode(500, new ApiResponse<PhotoResponse>
             {
                 Success = false,
                 Error = new ErrorResponse
@@ -172,13 +173,13 @@ public class PhotosController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<Photo>>> CreatePhoto([FromBody] Photo photo)
+    public async Task<ActionResult<ApiResponse<PhotoResponse>>> CreatePhoto([FromBody] PhotoCreateRequest photoCreate)
     {
         try
         {
-            if (string.IsNullOrEmpty(photo.FilePath) || string.IsNullOrEmpty(photo.Title))
+            if (string.IsNullOrEmpty(photoCreate.FilePath) || string.IsNullOrEmpty(photoCreate.Title))
             {
-                return BadRequest(new ApiResponse<Photo>
+                return BadRequest(new ApiResponse<PhotoResponse>
                 {
                     Success = false,
                     Error = new ErrorResponse
@@ -189,23 +190,49 @@ public class PhotosController : ControllerBase
                 });
             }
 
+            var photo = new Photo
+            {
+                FilePath = photoCreate.FilePath,
+                Title = photoCreate.Title,
+                Description = photoCreate.Description,
+                Folder = photoCreate.Folder,
+                Location = photoCreate.Location,
+                Date = DateTime.UtcNow
+            };
+
+            // 处理标签
+            if (photoCreate.Tags != null)
+            {
+                foreach (var tagName in photoCreate.Tags)
+                {
+                    var existingTag = await _context.Tags.FirstOrDefaultAsync(t => t.Name == tagName);
+                    if (existingTag == null)
+                    {
+                        existingTag = new Tag { Name = tagName };
+                        _context.Tags.Add(existingTag);
+                    }
+
+                    photo.Tags.Add(new PhotoTag { Photo = photo, Tag = existingTag });
+                }
+            }
+
             _context.Photos.Add(photo);
             await _context.SaveChangesAsync();
 
-            // 将FilePath转换为URL
-            var photoWithUrl = new Photo
+            // 将FilePath转换为URL并转换为PhotoResponse
+            var photoWithUrl = new PhotoResponse
             {
                 Id = photo.Id,
                 FilePath = _photoStorageService.GetFileUrl(photo.FilePath),
                 Title = photo.Title,
                 Description = photo.Description,
-                Tags = photo.Tags,
+                Tags = photo.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = photo.Folder,
                 Location = photo.Location,
                 Date = photo.Date
             };
 
-            return CreatedAtAction(nameof(GetPhoto), new { id = photo.Id }, new ApiResponse<Photo>
+            return CreatedAtAction(nameof(GetPhoto), new { id = photo.Id }, new ApiResponse<PhotoResponse>
             {
                 Success = true,
                 Data = photoWithUrl
@@ -213,7 +240,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<Photo>
+            return StatusCode(500, new ApiResponse<PhotoResponse>
             {
                 Success = false,
                 Error = new ErrorResponse
@@ -227,7 +254,7 @@ public class PhotosController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiResponse<Photo>>> UpdatePhoto(int id, [FromBody] Photo photoUpdate)
+    public async Task<ActionResult<ApiResponse<PhotoResponse>>> UpdatePhoto(int id, [FromBody] PhotoUpdateRequest photoUpdate)
     {
         try
         {
@@ -235,7 +262,7 @@ public class PhotosController : ControllerBase
 
             if (photo == null)
             {
-                return NotFound(new ApiResponse<Photo>
+                return NotFound(new ApiResponse<PhotoResponse>
                 {
                     Success = false,
                     Error = new ErrorResponse
@@ -256,26 +283,47 @@ public class PhotosController : ControllerBase
             // Update fields
             photo.Title = photoUpdate.Title;
             photo.Description = photoUpdate.Description;
-            photo.Tags = photoUpdate.Tags;
             photo.Folder = photoUpdate.Folder;
             photo.Location = photoUpdate.Location;
 
+            // 处理标签更新
+            if (photoUpdate.Tags != null)
+            {
+                // 清除现有标签
+                var existingPhotoTags = _context.PhotoTags.Where(pt => pt.PhotoId == photo.Id);
+                _context.PhotoTags.RemoveRange(existingPhotoTags);
+
+                // 添加新标签
+                foreach (var tagName in photoUpdate.Tags)
+                {
+                    var existingTag = await _context.Tags.FirstOrDefaultAsync(t => t.Name == tagName);
+                    if (existingTag == null)
+                    {
+                        existingTag = new Tag { Name = tagName };
+                        _context.Tags.Add(existingTag);
+                    }
+
+                    var photoTag = new PhotoTag { PhotoId = photo.Id, TagId = existingTag.Id };
+                    _context.PhotoTags.Add(photoTag);
+                }
+            }
+
             await _context.SaveChangesAsync();
 
-            // 将FilePath转换为URL
-            var photoWithUrl = new Photo
+            // 将FilePath转换为URL并转换为PhotoResponse
+            var photoWithUrl = new PhotoResponse
             {
                 Id = photo.Id,
                 FilePath = _photoStorageService.GetFileUrl(photo.FilePath),
                 Title = photo.Title,
                 Description = photo.Description,
-                Tags = photo.Tags,
+                Tags = photo.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = photo.Folder,
                 Location = photo.Location,
                 Date = photo.Date
             };
 
-            return Ok(new ApiResponse<Photo>
+            return Ok(new ApiResponse<PhotoResponse>
             {
                 Success = true,
                 Data = photoWithUrl
@@ -283,7 +331,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<Photo>
+            return StatusCode(500, new ApiResponse<PhotoResponse>
             {
                 Success = false,
                 Error = new ErrorResponse
@@ -344,7 +392,7 @@ public class PhotosController : ControllerBase
     }
 
     [HttpGet("recommend")]
-    public async Task<ActionResult<ApiResponse<List<Photo>>>> GetRecommendedPhotos(
+    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetRecommendedPhotos(
         [FromQuery] int page = 1,
         [FromQuery] int limit = 20,
         [FromQuery] string? excludeIds = null)
@@ -374,10 +422,10 @@ public class PhotosController : ControllerBase
             if (total == 0)
             {
                 // 如果没有符合条件的照片，返回空列表
-                return Ok(new ApiResponse<List<Photo>>
+                return Ok(new ApiResponse<List<PhotoResponse>>
                 {
                     Success = true,
-                    Data = new List<Photo>(),
+                    Data = new List<PhotoResponse>(),
                     Pagination = new PaginationInfo
                     {
                         Page = page,
@@ -390,25 +438,26 @@ public class PhotosController : ControllerBase
 
             // 随机选择照片：使用NEWID()在数据库层面进行随机排序
             var photos = await query
+                .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
                 .OrderBy(p => Guid.NewGuid())
                 .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
 
-            // 将FilePath转换为URL
-            var photosWithUrls = photos.Select(p => new Photo
+            // 将FilePath转换为URL并转换为PhotoResponse
+            var photosWithUrls = photos.Select(p => new PhotoResponse
             {
                 Id = p.Id,
                 FilePath = _photoStorageService.GetFileUrl(p.FilePath),
                 Title = p.Title,
                 Description = p.Description,
-                Tags = p.Tags,
+                Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date
             }).ToList();
 
-            return Ok(new ApiResponse<List<Photo>>
+            return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
                 Data = photosWithUrls,
@@ -423,7 +472,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<Photo>>
+            return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
                 Error = new ErrorResponse
@@ -437,7 +486,7 @@ public class PhotosController : ControllerBase
     }
 
     [HttpGet("paginated")]
-    public async Task<ActionResult<ApiResponse<List<Photo>>>> GetPhotosPaginated(
+    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetPhotosPaginated(
         [FromQuery] int page = 1,
         [FromQuery] int limit = 20,
         [FromQuery] string? tags = null,
@@ -486,25 +535,26 @@ public class PhotosController : ControllerBase
 
             var total = await query.CountAsync();
             var photos = await query
+                .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
                 .OrderByDescending(p => p.Date)
                 .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
 
-            // 将FilePath转换为URL
-            var photosWithUrls = photos.Select(p => new Photo
+            // 将FilePath转换为URL并转换为PhotoResponse
+            var photosWithUrls = photos.Select(p => new PhotoResponse
             {
                 Id = p.Id,
                 FilePath = _photoStorageService.GetFileUrl(p.FilePath),
                 Title = p.Title,
                 Description = p.Description,
-                Tags = p.Tags,
+                Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date
             }).ToList();
 
-            return Ok(new ApiResponse<List<Photo>>
+            return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
                 Data = photosWithUrls,
@@ -519,7 +569,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<Photo>>
+            return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
                 Error = new ErrorResponse
@@ -533,7 +583,7 @@ public class PhotosController : ControllerBase
     }
 
     [HttpPost("upload")]
-    public async Task<ActionResult<ApiResponse<List<Photo>>>> UploadPhotos()
+    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> UploadPhotos()
     {
         try
         {
@@ -541,7 +591,7 @@ public class PhotosController : ControllerBase
 
             if (files == null || files.Count == 0)
             {
-                return BadRequest(new ApiResponse<List<Photo>>
+                return BadRequest(new ApiResponse<List<PhotoResponse>>
                 {
                     Success = false,
                     Error = new ErrorResponse
@@ -601,20 +651,20 @@ public class PhotosController : ControllerBase
 
             await _context.SaveChangesAsync();
 
-            // 将FilePath转换为URL
-            var uploadedPhotosWithUrls = uploadedPhotos.Select(p => new Photo
+            // 将FilePath转换为URL并转换为PhotoResponse
+            var uploadedPhotosWithUrls = uploadedPhotos.Select(p => new PhotoResponse
             {
                 Id = p.Id,
                 FilePath = _photoStorageService.GetFileUrl(p.FilePath),
                 Title = p.Title,
                 Description = p.Description,
-                Tags = p.Tags,
+                Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date
             }).ToList();
 
-            return Ok(new ApiResponse<List<Photo>>
+            return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
                 Data = uploadedPhotosWithUrls,
@@ -623,7 +673,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<Photo>>
+            return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
                 Error = new ErrorResponse
@@ -637,33 +687,31 @@ public class PhotosController : ControllerBase
     }
 
     [HttpGet("uncategorized")]
-    public async Task<ActionResult<ApiResponse<List<Photo>>>> GetUncategorizedPhotos()
+    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetUncategorizedPhotos()
     {
         try
         {
-            // 先获取所有照片，然后在客户端进行筛选
-            var allPhotos = await _context.Photos.ToListAsync();
+            var allPhotos = _context.Photos.Where(p => p.Folder == "未分类")
+                .OrderByDescending(p => p.Date);
 
             // 获取未分类的照片：文件夹为"未分类"的
-            var uncategorizedPhotos = allPhotos
-                .Where(p => p.Folder == "未分类")
-                .OrderByDescending(p => p.Date)
-                .ToList();
+            var uncategorizedPhotos = await allPhotos
+                .ToListAsync();
 
-            // 将FilePath转换为URL
-            var uncategorizedPhotosWithUrls = uncategorizedPhotos.Select(p => new Photo
+            // 将FilePath转换为URL并转换为PhotoResponse
+            var uncategorizedPhotosWithUrls = uncategorizedPhotos.Select(p => new PhotoResponse
             {
                 Id = p.Id,
                 FilePath = _photoStorageService.GetFileUrl(p.FilePath),
                 Title = p.Title,
                 Description = p.Description,
-                Tags = p.Tags,
+                Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date
             }).ToList();
 
-            return Ok(new ApiResponse<List<Photo>>
+            return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
                 Data = uncategorizedPhotosWithUrls
@@ -671,7 +719,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<Photo>>
+            return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
                 Error = new ErrorResponse
