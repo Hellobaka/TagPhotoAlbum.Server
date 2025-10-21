@@ -407,7 +407,6 @@ photoApi.getPhotosPaginated(1, 20, {
 **GET** `/photos/recommend`
 
 查询参数：
-- `page` (可选): 页码，默认 1
 - `limit` (可选): 每页数量，默认 20
 - `excludeIds` (可选): 排除的照片ID列表，用逗号分隔
 
@@ -428,13 +427,7 @@ photoApi.getPhotosPaginated(1, 20, {
       "compressedFilePath": "string",
       "hasCompressedImage": "boolean"
     }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 100,
-    "pages": 5
-  }
+  ]
 }
 ```
 
@@ -446,11 +439,11 @@ photoApi.getPhotosPaginated(1, 20, {
 
 **使用示例：**
 ```javascript
-// 加载第一页推荐照片
-GET /api/photos/recommend?page=1&limit=20
+// 加载任意推荐照片
+GET /api/photos/recommend?limit=20
 
-// 加载第二页，排除已显示的ID为1,2,3的照片
-GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
+// 加载新的数据但是排除已显示的ID为1,2,3的照片
+GET /api/photos/recommend?excludeIds=1,2,3
 ```
 
 ### 上传图片

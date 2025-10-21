@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using TagPhotoAlbum.Server.Data;
 using TagPhotoAlbum.Server.Models;
 using TagPhotoAlbum.Server.Services;
@@ -403,13 +404,12 @@ public class PhotosController : ControllerBase
 
     [HttpGet("recommend")]
     public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetRecommendedPhotos(
-        [FromQuery] int page = 1,
         [FromQuery] int limit = 20,
         [FromQuery] string? excludeIds = null)
     {
         try
         {
-            // 使用预设的筛选条件：推荐艺术类照片
+            // 使用预设的筛选条件
             var query = _context.Photos
                 .Where(p => p.Folder == "艺术" || p.Tags.Any(o => o.Tag.Name == "艺术") || p.Tags.Any(o => o.Tag.Name == "抽象"));
 
@@ -435,22 +435,14 @@ public class PhotosController : ControllerBase
                 return Ok(new ApiResponse<List<PhotoResponse>>
                 {
                     Success = true,
-                    Data = new List<PhotoResponse>(),
-                    Pagination = new PaginationInfo
-                    {
-                        Page = page,
-                        Limit = limit,
-                        Total = 0,
-                        Pages = 0
-                    }
+                    Data = []
                 });
             }
 
-            // 随机选择照片：使用NEWID()在数据库层面进行随机排序
+            // 随机选择照片
             var photos = await query
                 .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
                 .OrderBy(p => Guid.NewGuid())
-                .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
 
@@ -472,14 +464,7 @@ public class PhotosController : ControllerBase
             return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
-                Data = photosWithUrls,
-                Pagination = new PaginationInfo
-                {
-                    Page = page,
-                    Limit = limit,
-                    Total = total,
-                    Pages = (int)Math.Ceiling(total / (double)limit)
-                }
+                Data = photosWithUrls
             });
         }
         catch (Exception ex)
