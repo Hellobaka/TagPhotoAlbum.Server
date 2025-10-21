@@ -265,7 +265,7 @@ public class PhotosController : ControllerBase
             }
 
             // 删除物理文件
-            _photoStorageService.DeleteFile(photo.FilePath);
+            // _photoStorageService.DeleteFile(photo.FilePath);
 
             _context.Photos.Remove(photo);
             await _context.SaveChangesAsync();
@@ -293,22 +293,31 @@ public class PhotosController : ControllerBase
 
     [HttpGet("recommend")]
     public async Task<ActionResult<ApiResponse<List<Photo>>>> GetRecommendedPhotos(
-        [FromQuery] int count = 20)
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 20,
+        [FromQuery] string? excludeIds = null)
     {
         try
         {
             // 使用预设的筛选条件：推荐艺术类照片
-            // 先获取所有照片，然后在内存中进行筛选和随机选择
-            var allPhotos = await _context.Photos.ToListAsync();
+            var query = _context.Photos
+                .Where(p => p.Folder == "艺术" || p.Tags.Any(o => o == "艺术") || p.Tags.Any(o => o == "抽象"));
 
-            // 筛选条件：文件夹为"艺术"，或者标签包含"艺术"或"抽象"
-            var filteredPhotos = allPhotos
-                .Where(p => p.Folder == "艺术" ||
-                           (p.Tags != null && (p.Tags.Contains("艺术") || p.Tags.Contains("抽象"))))
-                .Take(count)
-                .ToList();
+            // 排除已显示的照片ID
+            if (!string.IsNullOrEmpty(excludeIds))
+            {
+                var excludedIds = excludeIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(id => int.TryParse(id, out var parsedId) ? parsedId : -1)
+                    .Where(id => id > 0)
+                    .ToList();
 
-            var total = filteredPhotos.Count;
+                if (excludedIds.Count != 0)
+                {
+                    query = query.Where(p => !excludedIds.Any(o => o == p.Id));
+                }
+            }
+
+            var total = await query.CountAsync();
 
             if (total == 0)
             {
@@ -316,19 +325,35 @@ public class PhotosController : ControllerBase
                 return Ok(new ApiResponse<List<Photo>>
                 {
                     Success = true,
-                    Data = new List<Photo>()
+                    Data = new List<Photo>(),
+                    Pagination = new PaginationInfo
+                    {
+                        Page = page,
+                        Limit = limit,
+                        Total = 0,
+                        Pages = 0
+                    }
                 });
             }
 
-            // 随机选择指定数量的照片
-            var photos = filteredPhotos
+            // 随机选择照片：使用NEWID()在数据库层面进行随机排序
+            var photos = await query
                 .OrderBy(p => Guid.NewGuid())
-                .ToList();
+                .Skip((page - 1) * limit)
+                .Take(limit)
+                .ToListAsync();
 
             return Ok(new ApiResponse<List<Photo>>
             {
                 Success = true,
-                Data = photos
+                Data = photos,
+                Pagination = new PaginationInfo
+                {
+                    Page = page,
+                    Limit = limit,
+                    Total = total,
+                    Pages = (int)Math.Ceiling(total / (double)limit)
+                }
             });
         }
         catch (Exception ex)

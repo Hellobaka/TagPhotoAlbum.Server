@@ -16,15 +16,29 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<ApiResponse<LoginResponse>>> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<ApiResponse<SecureLoginResponse>>> SecureLogin([FromBody] SecureLoginRequest request)
     {
         try
         {
-            var user = await _authService.AuthenticateUser(request.Username, request.Password);
+            // Validate secure request
+            if (!_authService.ValidateSecureRequest(request))
+            {
+                return Unauthorized(new ApiResponse<SecureLoginResponse>
+                {
+                    Success = false,
+                    Error = new ErrorResponse
+                    {
+                        Code = "AUTH_ERROR",
+                        Message = "请求验证失败"
+                    }
+                });
+            }
+
+            var user = await _authService.AuthenticateUserSecure(request.Username, request.PasswordHash);
 
             if (user == null)
             {
-                return Unauthorized(new ApiResponse<LoginResponse>
+                return Unauthorized(new ApiResponse<SecureLoginResponse>
                 {
                     Success = false,
                     Error = new ErrorResponse
@@ -36,11 +50,13 @@ public class AuthController : ControllerBase
             }
 
             var token = _authService.GenerateJwtToken(user);
+            var serverTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var nextNonceSeed = _authService.GenerateNonceSeed();
 
-            return Ok(new ApiResponse<LoginResponse>
+            return Ok(new ApiResponse<SecureLoginResponse>
             {
                 Success = true,
-                Data = new LoginResponse
+                Data = new SecureLoginResponse
                 {
                     User = new User
                     {
@@ -48,13 +64,43 @@ public class AuthController : ControllerBase
                         Name = user.Name,
                         Email = user.Email
                     },
-                    Token = token
+                    Token = token,
+                    ServerTimestamp = serverTimestamp,
+                    NextNonceSeed = nextNonceSeed
                 }
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<LoginResponse>
+            return StatusCode(500, new ApiResponse<SecureLoginResponse>
+            {
+                Success = false,
+                Error = new ErrorResponse
+                {
+                    Code = "SERVER_ERROR",
+                    Message = "服务器内部错误",
+                    Details = ex.Message
+                }
+            });
+        }
+    }
+
+    [HttpGet("nonce-seed")]
+    public ActionResult<ApiResponse<string>> GetNonceSeed()
+    {
+        try
+        {
+            var nonceSeed = _authService.GenerateNonceSeed();
+
+            return Ok(new ApiResponse<string>
+            {
+                Success = true,
+                Data = nonceSeed
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<string>
             {
                 Success = false,
                 Error = new ErrorResponse

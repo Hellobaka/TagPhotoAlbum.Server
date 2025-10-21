@@ -94,7 +94,7 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     context.Database.EnsureCreated();
-    SeedData.Initialize(context);
+    SeedData.Initialize(context, externalStoragePaths);
 }
 
 app.MapControllers();

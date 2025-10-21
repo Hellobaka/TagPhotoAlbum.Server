@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using TagPhotoAlbum.Server.Data;
 using TagPhotoAlbum.Server.Models;
@@ -27,6 +28,50 @@ public class AuthService
             .FirstOrDefaultAsync(u => u.Username == username && u.PasswordHash == password);
 
         return user;
+    }
+
+    public async Task<User?> AuthenticateUserSecure(string username, string passwordHash)
+    {
+        // For secure login, compare password hashes
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Username == username && u.PasswordHash == passwordHash);
+
+        return user;
+    }
+
+    public bool ValidateSecureRequest(SecureLoginRequest request)
+    {
+        // Check if request is within 5 minutes
+        var requestTime = DateTimeOffset.FromUnixTimeMilliseconds(request.Timestamp).UtcDateTime;
+        var currentTime = DateTime.UtcNow;
+        var timeDiff = currentTime - requestTime;
+
+        if (timeDiff.TotalMinutes > 5 || timeDiff.TotalMinutes < -5)
+        {
+            return false; // Request too old or from future
+        }
+
+        // Validate signature
+        var payload = $"{request.Username}:{request.PasswordHash}:{request.Timestamp}:{request.Nonce}";
+        var expectedSignature = ComputeHmacSignature(payload);
+
+        return string.Equals(request.Signature, expectedSignature, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string ComputeHmacSignature(string payload)
+    {
+        var key = _configuration["Jwt:Key"] ?? "default-secret-key";
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(key));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(hash).ToLower();
+    }
+
+    public string GenerateNonceSeed()
+    {
+        var randomBytes = new byte[16];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomBytes);
+        return Convert.ToBase64String(randomBytes);
     }
 
     public string GenerateJwtToken(User user)

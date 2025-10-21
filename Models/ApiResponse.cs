@@ -30,8 +30,25 @@ public class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
+public class SecureLoginRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public long Timestamp { get; set; }
+    public string Nonce { get; set; } = string.Empty;
+    public string Signature { get; set; } = string.Empty;
+}
+
 public class LoginResponse
 {
     public User User { get; set; } = new();
     public string Token { get; set; } = string.Empty;
+}
+
+public class SecureLoginResponse
+{
+    public User User { get; set; } = new();
+    public string Token { get; set; } = string.Empty;
+    public long ServerTimestamp { get; set; }
+    public string NextNonceSeed { get; set; } = string.Empty;
 }
