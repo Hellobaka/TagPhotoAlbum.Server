@@ -285,8 +285,8 @@ public class PhotosController : ControllerBase
             // 如果文件夹发生变化，移动文件
             if (photo.Folder != photoUpdate.Folder)
             {
-                var newFilePath = await _photoStorageService.MoveFileAsync(photo.FilePath, photoUpdate.Folder);
-                photo.FilePath = newFilePath;
+                //var newFilePath = await _photoStorageService.MoveFileAsync(photo.FilePath, photoUpdate.Folder);
+                //photo.FilePath = newFilePath;
             }
 
             // Update fields
@@ -302,6 +302,9 @@ public class PhotosController : ControllerBase
                 var existingPhotoTags = _context.PhotoTags.Where(pt => pt.PhotoId == photo.Id);
                 _context.PhotoTags.RemoveRange(existingPhotoTags);
 
+                // 先保存删除操作，确保PhotoTag表清理干净
+                await _context.SaveChangesAsync();
+
                 // 添加新标签
                 foreach (var tagName in photoUpdate.Tags)
                 {
@@ -310,6 +313,8 @@ public class PhotosController : ControllerBase
                     {
                         existingTag = new Tag { Name = tagName };
                         _context.Tags.Add(existingTag);
+                        // 先保存新标签以获取ID
+                        await _context.SaveChangesAsync();
                     }
 
                     var photoTag = new PhotoTag { PhotoId = photo.Id, TagId = existingTag.Id };

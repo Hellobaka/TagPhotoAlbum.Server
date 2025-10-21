@@ -98,8 +98,9 @@ app.UseAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var compressionService = scope.ServiceProvider.GetRequiredService<ImageCompressionService>();
     context.Database.EnsureCreated();
-    SeedData.Initialize(context, externalStoragePaths);
+    SeedData.Initialize(compressionService, context, externalStoragePaths);
 }
 
 app.MapControllers();

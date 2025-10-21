@@ -46,19 +46,11 @@ public class ImageCompressionService
             }
 
             // 获取原文件的文件夹和文件名
-            var originalFolder = Path.GetFileName(Path.GetDirectoryName(originalFilePath));
             var fileName = Path.GetFileNameWithoutExtension(originalFilePath);
             var compressedFileName = $"{fileName}_compressed.jpg";
 
             // 生成压缩文件的路径
-            var compressedFolder = Path.Combine(_options.CompressedFolder, originalFolder ?? "未分类");
-            var compressedFilePath = await GetCompressedFilePathAsync(compressedFolder, compressedFileName);
-
-            // 如果压缩文件已存在，直接返回路径
-            if (File.Exists(compressedFilePath))
-            {
-                return compressedFilePath;
-            }
+            var compressedFilePath = await GetCompressedFilePathAsync(_options.CompressedFolder, compressedFileName);
 
             // 使用ImageMagick压缩图片
             using var image = new MagickImage(originalFilePath);
@@ -96,10 +88,9 @@ public class ImageCompressionService
             return null;
         }
 
-        var originalFolder = Path.GetFileName(Path.GetDirectoryName(originalFilePath));
         var fileName = Path.GetFileNameWithoutExtension(originalFilePath);
         var compressedFileName = $"{fileName}_compressed.jpg";
-        var compressedFolder = Path.Combine(_options.CompressedFolder, originalFolder ?? "未分类");
+        var compressedFolder = _options.CompressedFolder;
 
         // 生成压缩文件路径
         var compressedFilePath = Path.Combine(_photoStorageService.GetPrimaryStoragePath(), compressedFolder, compressedFileName);
@@ -122,98 +113,6 @@ public class ImageCompressionService
         return !string.IsNullOrEmpty(compressedFileUrl);
     }
 
-    /// <summary>
-    /// 删除压缩文件
-    /// </summary>
-    public void DeleteCompressedFile(string originalFilePath)
-    {
-        try
-        {
-            var originalFolder = Path.GetFileName(Path.GetDirectoryName(originalFilePath));
-            var fileName = Path.GetFileNameWithoutExtension(originalFilePath);
-            var compressedFileName = $"{fileName}_compressed.jpg";
-            var compressedFolder = Path.Combine(_options.CompressedFolder, originalFolder ?? "未分类");
-
-            var compressedFilePath = Path.Combine(_photoStorageService.GetPrimaryStoragePath(), compressedFolder, compressedFileName);
-
-            if (File.Exists(compressedFilePath))
-            {
-                File.Delete(compressedFilePath);
-
-                // 如果压缩文件夹为空，删除文件夹
-                var compressedFolderPath = Path.GetDirectoryName(compressedFilePath);
-                if (Directory.Exists(compressedFolderPath) && !Directory.EnumerateFileSystemEntries(compressedFolderPath).Any())
-                {
-                    Directory.Delete(compressedFolderPath);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"删除压缩文件失败: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// 移动压缩文件（当原文件移动时调用）
-    /// </summary>
-    public async Task MoveCompressedFileAsync(string originalOldFilePath, string originalNewFilePath)
-    {
-        try
-        {
-            var oldCompressedFileUrl = GetCompressedFileUrl(originalOldFilePath);
-            if (string.IsNullOrEmpty(oldCompressedFileUrl))
-            {
-                return; // 没有压缩文件，无需移动
-            }
-
-            // 获取原压缩文件路径
-            var oldCompressedFilePath = GetCompressedFilePathFromUrl(oldCompressedFileUrl);
-            if (string.IsNullOrEmpty(oldCompressedFilePath) || !File.Exists(oldCompressedFilePath))
-            {
-                return;
-            }
-
-            // 生成新的压缩文件路径
-            var newOriginalFolder = Path.GetFileName(Path.GetDirectoryName(originalNewFilePath));
-            var fileName = Path.GetFileNameWithoutExtension(originalNewFilePath);
-            var compressedFileName = $"{fileName}_compressed.jpg";
-            var compressedFolder = Path.Combine(_options.CompressedFolder, newOriginalFolder ?? "未分类");
-            var newCompressedFilePath = await GetCompressedFilePathAsync(compressedFolder, compressedFileName);
-
-            // 确保新目录存在
-            var newCompressedFileDir = Path.GetDirectoryName(newCompressedFilePath);
-            if (!Directory.Exists(newCompressedFileDir))
-            {
-                Directory.CreateDirectory(newCompressedFileDir!);
-            }
-
-            // 移动文件
-            File.Move(oldCompressedFilePath, newCompressedFilePath);
-
-            // 清理旧目录（如果为空）
-            var oldCompressedFileDir = Path.GetDirectoryName(oldCompressedFilePath);
-            if (Directory.Exists(oldCompressedFileDir) && !Directory.EnumerateFileSystemEntries(oldCompressedFileDir).Any())
-            {
-                Directory.Delete(oldCompressedFileDir);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"移动压缩文件失败: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// 批量压缩图片
-    /// </summary>
-    public async Task<List<string>> BatchCompressImagesAsync(List<string> originalFilePaths)
-    {
-        var tasks = originalFilePaths.Select(CompressImageAsync);
-        var results = await Task.WhenAll(tasks);
-        return results.Where(path => !string.IsNullOrEmpty(path)).ToList()!;
-    }
-
     private async Task<string> GetCompressedFilePathAsync(string compressedFolder, string compressedFileName)
     {
         var compressedFolderPath = Path.Combine(_photoStorageService.GetPrimaryStoragePath(), compressedFolder);
@@ -225,22 +124,5 @@ public class ImageCompressionService
         }
 
         return Path.Combine(compressedFolderPath, compressedFileName);
-    }
-
-    private string? GetCompressedFilePathFromUrl(string compressedFileUrl)
-    {
-        if (string.IsNullOrEmpty(compressedFileUrl))
-        {
-            return null;
-        }
-
-        // 从URL中提取相对路径
-        var relativePath = compressedFileUrl.Replace("/external/", "").Replace('/', '\\');
-
-        // 查找文件所在的存储路径
-        var storagePath = _photoStorageService.GetStoragePaths()
-            .FirstOrDefault(path => File.Exists(Path.Combine(path, relativePath)));
-
-        return storagePath != null ? Path.Combine(storagePath, relativePath) : null;
     }
 }

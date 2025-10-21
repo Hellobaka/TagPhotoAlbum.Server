@@ -1,12 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using TagPhotoAlbum.Server.Models;
+using TagPhotoAlbum.Server.Services;
 
 namespace TagPhotoAlbum.Server.Data;
 
 public static class SeedData
 {
-    public static void Initialize(AppDbContext context, string[] externalStoragePaths)
+    public static void Initialize(ImageCompressionService compressionService, AppDbContext context, string[] externalStoragePaths)
     {
         if (context.Users.Any() || context.Photos.Any())
         {
@@ -30,8 +31,8 @@ public static class SeedData
             if (Directory.Exists(dir))
             {
                 var files = Directory.GetFiles(dir);
-                string[] avaliableExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
-                foreach (var file in files.Where(x => avaliableExtensions.Contains(Path.GetExtension(x))))
+                string[] availableExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
+                foreach (var file in files.Where(x => availableExtensions.Contains(Path.GetExtension(x))))
                 {
                     photos.Add(new Photo
                     {
@@ -43,6 +44,7 @@ public static class SeedData
                         Description = string.Empty,
                         Location = string.Empty
                     });
+                    compressionService.CompressImageAsync(file).Wait();
                 }
             }
         }
