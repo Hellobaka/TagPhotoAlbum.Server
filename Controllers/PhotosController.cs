@@ -14,11 +14,13 @@ public class PhotosController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly PhotoStorageService _photoStorageService;
+    private readonly ImageCompressionService _imageCompressionService;
 
-    public PhotosController(AppDbContext context, PhotoStorageService photoStorageService)
+    public PhotosController(AppDbContext context, PhotoStorageService photoStorageService, ImageCompressionService imageCompressionService)
     {
         _context = context;
         _photoStorageService = photoStorageService;
+        _imageCompressionService = imageCompressionService;
     }
 
     [HttpGet]
@@ -87,7 +89,9 @@ public class PhotosController : ControllerBase
                 Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
-                Date = p.Date
+                Date = p.Date,
+                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
 
             return Ok(new ApiResponse<List<PhotoResponse>>
@@ -148,7 +152,9 @@ public class PhotosController : ControllerBase
                 Tags = photo.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = photo.Folder,
                 Location = photo.Location,
-                Date = photo.Date
+                Date = photo.Date,
+                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
 
             return Ok(new ApiResponse<PhotoResponse>
@@ -229,7 +235,9 @@ public class PhotosController : ControllerBase
                 Tags = photo.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = photo.Folder,
                 Location = photo.Location,
-                Date = photo.Date
+                Date = photo.Date,
+                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
 
             return CreatedAtAction(nameof(GetPhoto), new { id = photo.Id }, new ApiResponse<PhotoResponse>
@@ -320,7 +328,9 @@ public class PhotosController : ControllerBase
                 Tags = photo.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = photo.Folder,
                 Location = photo.Location,
-                Date = photo.Date
+                Date = photo.Date,
+                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
 
             return Ok(new ApiResponse<PhotoResponse>
@@ -454,7 +464,9 @@ public class PhotosController : ControllerBase
                 Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
-                Date = p.Date
+                Date = p.Date,
+                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
 
             return Ok(new ApiResponse<List<PhotoResponse>>
@@ -551,7 +563,9 @@ public class PhotosController : ControllerBase
                 Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
-                Date = p.Date
+                Date = p.Date,
+                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
 
             return Ok(new ApiResponse<List<PhotoResponse>>
@@ -618,6 +632,7 @@ public class PhotosController : ControllerBase
                 // 使用外部存储保存文件
                 var folder = "未分类";
                 var filePath = await _photoStorageService.SaveFileAsync(file, folder);
+                var compressedPath = await _imageCompressionService.CompressImageAsync(filePath);
 
                 // 检查是否已存在同名照片记录，如果存在则更新
                 var existingPhoto = await _context.Photos
@@ -661,7 +676,9 @@ public class PhotosController : ControllerBase
                 Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
-                Date = p.Date
+                Date = p.Date,
+                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
 
             return Ok(new ApiResponse<List<PhotoResponse>>
@@ -708,7 +725,9 @@ public class PhotosController : ControllerBase
                 Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
                 Folder = p.Folder,
                 Location = p.Location,
-                Date = p.Date
+                Date = p.Date,
+                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
 
             return Ok(new ApiResponse<List<PhotoResponse>>

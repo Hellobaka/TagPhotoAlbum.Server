@@ -143,7 +143,9 @@ Authorization: Bearer {jwt_token}
       "tags": ["string"],
       "folder": "string",
       "location": "string",
-      "date": "string"
+      "date": "string",
+      "compressedFilePath": "string",
+      "hasCompressedImage": "boolean"
     }
   ],
   "pagination": {
@@ -159,6 +161,7 @@ Authorization: Bearer {jwt_token}
 - 标签、文件夹、地点页面使用分页加载，首次加载第1页（20张照片）
 - 滚动到底部时自动加载下一页
 - 支持懒加载，减少初始加载时间
+- 所有照片响应包含压缩图片信息，客户端可根据网络状况选择加载原图或压缩图
 
 ### 分页获取照片列表（前端专用）
 
@@ -195,6 +198,7 @@ photoApi.getPhotosPaginated(1, 20, {
 - 自动将标签数组转换为逗号分隔的字符串
 - 支持组合筛选条件
 - 主要用于标签、文件夹、地点页面的懒加载功能
+- 所有返回的照片数据包含压缩图片信息，便于客户端优化加载
 
 ### 获取单个照片
 
@@ -212,7 +216,9 @@ photoApi.getPhotosPaginated(1, 20, {
     "tags": ["string"],
     "folder": "string",
     "location": "string",
-    "date": "string"
+    "date": "string",
+    "compressedFilePath": "string",
+    "hasCompressedImage": "boolean"
   }
 }
 ```
@@ -245,7 +251,9 @@ photoApi.getPhotosPaginated(1, 20, {
     "tags": ["string"],
     "folder": "string",
     "location": "string",
-    "date": "string"
+    "date": "string",
+    "compressedFilePath": "string",
+    "hasCompressedImage": "boolean"
   }
 }
 ```
@@ -277,7 +285,9 @@ photoApi.getPhotosPaginated(1, 20, {
     "tags": ["string"],
     "folder": "string",
     "location": "string",
-    "date": "string"
+    "date": "string",
+    "compressedFilePath": "string",
+    "hasCompressedImage": "boolean"
   }
 }
 ```
@@ -414,7 +424,9 @@ photoApi.getPhotosPaginated(1, 20, {
       "tags": ["string"],
       "folder": "string",
       "location": "string",
-      "date": "string"
+      "date": "string",
+      "compressedFilePath": "string",
+      "hasCompressedImage": "boolean"
     }
   ],
   "pagination": {
@@ -430,6 +442,7 @@ photoApi.getPhotosPaginated(1, 20, {
 - 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片
 - 使用 `excludeIds` 参数避免重复显示已加载的照片
 - 每次请求返回随机推荐的艺术类照片（文件夹为"艺术"或标签包含"艺术"、"抽象"）
+- 推荐照片同样包含压缩图片信息，优化加载体验
 
 **使用示例：**
 ```javascript
@@ -497,6 +510,7 @@ GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
 - 未分类页面独立加载，不参与懒加载
 - 每次切换到未分类页面都会重新获取数据
 - 支持批量分类操作
+- 未分类照片同样包含压缩图片信息，便于快速预览
 
 ## 错误处理
 
@@ -626,6 +640,14 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 
 ## 新功能说明
 
+### 图片压缩功能
+
+- **自动压缩**: 图片上传时自动生成压缩版本，减轻网络负担
+- **智能尺寸**: 最大宽度1024px，最大高度768px，保持宽高比
+- **质量优化**: 可配置压缩质量（默认80%），使用ImageMagick高质量压缩算法
+- **文件组织**: 压缩图片存储在`compressed`文件夹中，保持与原文件相同的目录结构
+- **格式支持**: 支持JPG、JPEG、PNG、BMP、WebP、GIF、TIFF等格式
+
 ### 安全增强
 
 - **安全登录**: 新增安全登录接口，使用HMAC-SHA256签名验证
@@ -655,6 +677,7 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 - **文件类型**: JPG、JPEG、PNG、GIF、BMP、WebP、SVG
 - **进度显示**: 实时上传进度条
 - **结果反馈**: 成功/失败状态通知
+- **自动压缩**: 上传时自动生成压缩版本，减轻网络负担
 
 ### 未分类照片管理
 
@@ -690,4 +713,6 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 7. 懒加载功能需要浏览器支持 Intersection Observer API
 8. 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片，避免重复显示
 9. 筛选数据按需加载，减少初始请求数量
-10. **安全要求**: 生产环境必须配置HTTPS和安全密钥
+10. **图片压缩**: 上传图片时自动生成压缩版本，客户端可根据网络状况选择加载原图或压缩图
+11. **压缩配置**: 压缩质量可在 `appsettings.json` 中配置，默认80%
+12. **安全要求**: 生产环境必须配置HTTPS和安全密钥

@@ -53,9 +53,14 @@ builder.Services.AddControllers();
 builder.Services.Configure<PhotoStorageOptions>(
     builder.Configuration.GetSection("PhotoStorage"));
 
+// Configure ImageCompression options
+builder.Services.Configure<ImageCompressionOptions>(
+    builder.Configuration.GetSection("ImageCompression"));
+
 // Register services
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<PhotoStorageService>();
+builder.Services.AddScoped<ImageCompressionService>();
 
 var app = builder.Build();
 
