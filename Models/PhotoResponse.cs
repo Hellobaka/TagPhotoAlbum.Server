@@ -18,6 +18,8 @@ public class PhotoResponse
    
     public DateTime Date { get; set; } = DateTime.UtcNow;
 
+    public double FileSizeKB { get; set; } // 文件大小，单位为KB
+
     public string? CompressedFilePath { get; set; }
 
     public bool HasCompressedImage { get; set; }

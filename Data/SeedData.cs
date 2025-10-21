@@ -34,6 +34,10 @@ public static class SeedData
                 string[] availableExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
                 foreach (var file in files.Where(x => availableExtensions.Contains(Path.GetExtension(x))))
                 {
+                    // 获取文件大小（单位：KB）
+                    var fileInfo = new FileInfo(file);
+                    var fileSizeKB = fileInfo.Exists ? Math.Round(fileInfo.Length / 1024.0, 2) : 0;
+
                     photos.Add(new Photo
                     {
                         FilePath = file,
@@ -42,7 +46,8 @@ public static class SeedData
                         Date = File.GetCreationTime(file),
                         Tags = [],
                         Description = string.Empty,
-                        Location = string.Empty
+                        Location = string.Empty,
+                        FileSizeKB = fileSizeKB
                     });
                     compressionService.CompressImageAsync(file).Wait();
                 }

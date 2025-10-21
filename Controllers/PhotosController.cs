@@ -91,6 +91,7 @@ public class PhotosController : ControllerBase
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date,
+                FileSizeKB = p.FileSizeKB,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
@@ -154,6 +155,7 @@ public class PhotosController : ControllerBase
                 Folder = photo.Folder,
                 Location = photo.Location,
                 Date = photo.Date,
+                FileSizeKB = photo.FileSizeKB,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
@@ -237,6 +239,7 @@ public class PhotosController : ControllerBase
                 Folder = photo.Folder,
                 Location = photo.Location,
                 Date = photo.Date,
+                FileSizeKB = photo.FileSizeKB,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
@@ -335,6 +338,7 @@ public class PhotosController : ControllerBase
                 Folder = photo.Folder,
                 Location = photo.Location,
                 Date = photo.Date,
+                FileSizeKB = photo.FileSizeKB,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
@@ -462,6 +466,7 @@ public class PhotosController : ControllerBase
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date,
+                FileSizeKB = p.FileSizeKB,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
@@ -554,6 +559,7 @@ public class PhotosController : ControllerBase
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date,
+                FileSizeKB = p.FileSizeKB,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
@@ -624,6 +630,10 @@ public class PhotosController : ControllerBase
                 var filePath = await _photoStorageService.SaveFileAsync(file, folder);
                 var compressedPath = await _imageCompressionService.CompressImageAsync(filePath);
 
+                // 获取文件大小（单位：KB）
+                var fileInfo = new FileInfo(filePath);
+                var fileSizeKB = fileInfo.Exists ? Math.Round(fileInfo.Length / 1024.0, 2) : 0;
+
                 // 检查是否已存在同名照片记录，如果存在则更新
                 var existingPhoto = await _context.Photos
                     .FirstOrDefaultAsync(p => p.FilePath == filePath);
@@ -633,6 +643,7 @@ public class PhotosController : ControllerBase
                     // 更新现有照片记录
                     existingPhoto.Title = Path.GetFileNameWithoutExtension(file.FileName);
                     existingPhoto.Date = DateTime.UtcNow;
+                    existingPhoto.FileSizeKB = fileSizeKB;
                     uploadedPhotos.Add(existingPhoto);
                 }
                 else
@@ -646,7 +657,8 @@ public class PhotosController : ControllerBase
                         Tags = [],
                         Folder = folder,
                         Location = string.Empty,
-                        Date = DateTime.UtcNow
+                        Date = DateTime.UtcNow,
+                        FileSizeKB = fileSizeKB
                     };
 
                     _context.Photos.Add(photo);
@@ -667,6 +679,7 @@ public class PhotosController : ControllerBase
                 Folder = p.Folder,
                 Location = p.Location,
                 Date = p.Date,
+                FileSizeKB = p.FileSizeKB,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
@@ -717,7 +730,8 @@ public class PhotosController : ControllerBase
                 Location = p.Location,
                 Date = p.Date,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath),
+                FileSizeKB = p.FileSizeKB
             }).ToList();
 
             return Ok(new ApiResponse<List<PhotoResponse>>

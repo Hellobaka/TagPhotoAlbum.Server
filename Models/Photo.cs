@@ -10,16 +10,17 @@ public class Photo
     public string Folder { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public DateTime Date { get; set; } = DateTime.UtcNow;
+    public double FileSizeKB { get; set; } // æ–‡ä»¶å¤§å°ï¼Œå•ä½ä¸ºKB
 }
 
 public class Tag
 {
     public int Id { get; set; }
     public string Name { get; set; }
-    public ICollection<PhotoTag> PhotoTags { get; set; } // µ¼º½ÊôĞÔµ½¹ØÁª±í
+    public ICollection<PhotoTag> PhotoTags { get; set; } // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 }
 
-// PhotoTag (¹ØÁª±í/Á¬½ÓÊµÌå)
+// PhotoTag (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½)
 public class PhotoTag
 {
     public int PhotoId { get; set; }
