@@ -5,6 +5,8 @@ namespace TagPhotoAlbum.Server.Services;
 
 public class ExifService
 {
+    private static string[] FilterExifKey { get; set; } = ["MakerNote"];
+
     /// <summary>
     /// 从图片文件中提取EXIF信息
     /// </summary>
@@ -42,6 +44,10 @@ public class ExifService
                     try
                     {
                         var tagName = value.Tag.ToString();
+                        if (FilterExifKey.Contains(tagName))
+                        {
+                            continue;
+                        }
                         var tagValue = GetTagValue(value);
 
                         if (tagValue != null)
@@ -63,18 +69,18 @@ public class ExifService
             }
 
             // 提取常用EXIF信息
-            var commonExif = ExtractCommonExifInfo(image);
-            if (commonExif.Count > 0)
-            {
-                exifData["CommonExif"] = commonExif;
-            }
+            // var commonExif = ExtractCommonExifInfo(image);
+            // if (commonExif.Count > 0)
+            // {
+            //     exifData["CommonExif"] = commonExif;
+            // }
 
             // 提取图片基本信息
-            //var imageInfo = ExtractImageInfo(image);
-            //if (imageInfo.Count > 0)
-            //{
-            //    exifData["ImageInfo"] = imageInfo;
-            //}
+            // var imageInfo = ExtractImageInfo(image);
+            // if (imageInfo.Count > 0)
+            // {
+            //     exifData["ImageInfo"] = imageInfo;
+            // }
 
             return exifData.Count > 0 ? JsonSerializer.Serialize(exifData, new JsonSerializerOptions
             {

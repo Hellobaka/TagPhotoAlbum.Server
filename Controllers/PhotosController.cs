@@ -694,7 +694,8 @@ public class PhotosController : ControllerBase
                 Date = p.Date,
                 FileSizeKB = p.FileSizeKB,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath),
+                ExifData = p.ExifData,
             }).ToList();
 
             return Ok(new ApiResponse<List<PhotoResponse>>
@@ -744,7 +745,8 @@ public class PhotosController : ControllerBase
                 Date = p.Date,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath),
-                FileSizeKB = p.FileSizeKB
+                FileSizeKB = p.FileSizeKB,
+                ExifData = p.ExifData,
             }).ToList();
 
             return Ok(new ApiResponse<List<PhotoResponse>>

@@ -35,7 +35,7 @@ public static class SeedData
             {
                 var files = Directory.GetFiles(dir);
                 string[] availableExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
-                foreach (var file in files.Where(x => availableExtensions.Contains(Path.GetExtension(x))))
+                foreach (var file in files.Where(x => availableExtensions.Contains(Path.GetExtension(x).ToLower())))
                 {
                     // 获取文件大小（单位：KB）
                     var fileInfo = new FileInfo(file);
