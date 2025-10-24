@@ -59,6 +59,7 @@ builder.Services.Configure<ImageCompressionOptions>(
 
 // Register services
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<PasskeyService>();
 builder.Services.AddScoped<PhotoStorageService>();
 builder.Services.AddScoped<ImageCompressionService>();
 builder.Services.AddScoped<ExifService>();

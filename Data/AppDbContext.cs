@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<Tag> Tags { get; set; }
     public DbSet<PhotoTag> PhotoTags { get; set; }
+    public DbSet<Passkey> Passkeys { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,13 +23,13 @@ public class AppDbContext : DbContext
             modelBuilder.Entity<PhotoTag>()
                 .HasKey(pt => new { pt.PhotoId, pt.TagId });
 
-            // ÅäÖÃ Photo ºÍ PhotoTag Ö®¼äµÄ¹ØÏµ
+            // ï¿½ï¿½ï¿½ï¿½ Photo ï¿½ï¿½ PhotoTag Ö®ï¿½ï¿½Ä¹ï¿½Ïµ
             modelBuilder.Entity<PhotoTag>()
                 .HasOne(pt => pt.Photo)
                 .WithMany(p => p.Tags)
                 .HasForeignKey(pt => pt.PhotoId);
 
-            // ÅäÖÃ Tag ºÍ PhotoTag Ö®¼äµÄ¹ØÏµ
+            // ï¿½ï¿½ï¿½ï¿½ Tag ï¿½ï¿½ PhotoTag Ö®ï¿½ï¿½Ä¹ï¿½Ïµ
             modelBuilder.Entity<PhotoTag>()
                 .HasOne(pt => pt.Tag)
                 .WithMany(t => t.PhotoTags)
@@ -41,6 +42,19 @@ public class AppDbContext : DbContext
             entity.HasKey(u => u.Id);
             entity.HasIndex(u => u.Username).IsUnique();
             entity.HasIndex(u => u.Email).IsUnique();
+        });
+
+        // Configure Passkey entity
+        modelBuilder.Entity<Passkey>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.HasIndex(p => p.CredentialId).IsUnique();
+
+            // Configure relationship with User
+            entity.HasOne(p => p.User)
+                .WithMany(u => u.Passkeys)
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
