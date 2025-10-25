@@ -299,7 +299,7 @@ public class PasskeyService
 
         _logger.Info("成功获取用户通行密钥 - 用户ID: {UserId}, 数量: {Count}", userId, r.Count);
 
-        return r.Select(x => new GetPasskeysResponse { Id = x.Id, DeviceName = x.DeviceName }).ToList();
+        return r.Select(x => new GetPasskeysResponse { Id = x.Id, DeviceName = x.DeviceName, CreateAt = x.CreatedAt, LastUsedAt = x.LastUsedAt }).ToList();
     }
 
     public async Task<bool> DeletePasskey(int passkeyId, int userId)
