@@ -34,7 +34,7 @@ public class MetadataController : ControllerBase
                     Name = g.Key,
                     Count = g.Count()
                 })
-                .OrderBy(t => t.Name)
+                .OrderByDescending(t => t.Count)
                 .ToListAsync();
 
             var response = new TagsResponse

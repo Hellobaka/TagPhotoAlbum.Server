@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using NLog;
+using System.IO;
 using System.Linq;
 using TagPhotoAlbum.Server.Data;
 using TagPhotoAlbum.Server.Models;
 using TagPhotoAlbum.Server.Services;
-using NLog;
 
 namespace TagPhotoAlbum.Server.Controllers;
 
@@ -18,14 +20,17 @@ public class PhotosController : ControllerBase
     private readonly PhotoStorageService _photoStorageService;
     private readonly ImageCompressionService _imageCompressionService;
     private readonly ExifService _exifService;
+    private readonly IConfiguration _config;
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
-    public PhotosController(AppDbContext context, PhotoStorageService photoStorageService, ImageCompressionService imageCompressionService, ExifService exifService)
+    public PhotosController(AppDbContext context, PhotoStorageService photoStorageService, ImageCompressionService imageCompressionService, ExifService exifService,
+        IConfiguration config)
     {
         _context = context;
         _photoStorageService = photoStorageService;
         _imageCompressionService = imageCompressionService;
         _exifService = exifService;
+        _config = config;
     }
 
     [HttpGet]
@@ -35,12 +40,14 @@ public class PhotosController : ControllerBase
         [FromQuery] string? folder = null,
         [FromQuery] string? location = null,
         [FromQuery] string? tags = null,
-        [FromQuery] string? searchQuery = null)
+        [FromQuery] string? searchQuery = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortOrder = "desc")
     {
         try
         {
-            _logger.Info("开始获取照片列表 - 页码: {Page}, 每页数量: {Limit}, 文件夹: {Folder}, 位置: {Location}, 标签: {Tags}, 搜索: {SearchQuery}",
-                page, limit, folder ?? "未指定", location ?? "未指定", tags ?? "未指定", searchQuery ?? "未指定");
+            _logger.Info("开始获取照片列表 - 页码: {Page}, 每页数量: {Limit}, 文件夹: {Folder}, 位置: {Location}, 标签: {Tags}, 搜索: {SearchQuery}, 排序字段: {SortBy}, 排序顺序: {SortOrder}",
+                page, limit, folder ?? "未指定", location ?? "未指定", tags ?? "未指定", searchQuery ?? "未指定", sortBy ?? "默认(日期)", sortOrder ?? "desc");
             var query = _context.Photos.AsQueryable();
 
             // 默认排除未分类照片
@@ -63,7 +70,7 @@ public class PhotosController : ControllerBase
             if (!string.IsNullOrEmpty(tags))
             {
                 var tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                query = query.Where(p => p.Tags.Any(t => tagList.Contains(t.Tag.Name)));
+                query = query.Where(p => tagList.All(tagName => p.Tags.Any(t => t.Tag.Name == tagName)));
             }
 
             // Apply search query filter
@@ -79,13 +86,35 @@ public class PhotosController : ControllerBase
             }
 
             var total = await query.CountAsync();
+
+            // 应用排序
+            var isDescending = (sortOrder?.ToLower() ?? "desc") == "desc";
+
             var photos = await query
                 .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
-                .OrderByDescending(p => p.Date)
                 .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
 
+            switch (sortBy?.ToLower())
+            {
+                case "filename":
+                    photos = (isDescending
+                        ? photos.OrderByDescending(p => Path.GetFileName(p.FilePath))
+                        : photos.OrderBy(p => Path.GetFileName(p.FilePath))).ToList();
+                    break;
+                case "size":
+                    photos = (isDescending
+                        ? photos.OrderByDescending(p => p.FileSizeKB)
+                        : photos.OrderBy(p => p.FileSizeKB)).ToList();
+                    break;
+                case "date":
+                default:
+                    photos = (isDescending
+                        ? photos.OrderByDescending(p => p.Date)
+                        : photos.OrderBy(p => p.Date)).ToList();
+                    break;
+            }
             // 将FilePath转换为URL并转换为PhotoResponse
             var photosWithUrls = photos.Select(p => new PhotoResponse
             {
@@ -455,9 +484,11 @@ public class PhotosController : ControllerBase
         {
             _logger.Info("开始获取推荐照片 - 数量: {Limit}, 排除ID: {ExcludeIds}",
                 limit, excludeIds ?? "未指定");
+            var recommendTags = _config.GetSection("RecommendTags")?.Get<string[]>() ?? [];
+
             // 使用预设的筛选条件
             var query = _context.Photos
-                .Where(p => p.Folder == "艺术" || p.Tags.Any(o => o.Tag.Name == "艺术") || p.Tags.Any(o => o.Tag.Name == "抽象"));
+                .Where(p => p.Tags.Any(o => recommendTags.Any(x => o.Tag.Name == x)));
 
             // 排除已显示的照片ID
             if (!string.IsNullOrEmpty(excludeIds))
@@ -488,9 +519,9 @@ public class PhotosController : ControllerBase
             // 随机选择照片
             var photos = await query
                 .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
-                .OrderBy(p => Guid.NewGuid())
                 .Take(limit)
-                .ToListAsync();
+                .ToListAsync()
+                ;
 
             // 将FilePath转换为URL并转换为PhotoResponse
             var photosWithUrls = photos.Select(p => new PhotoResponse
@@ -507,7 +538,7 @@ public class PhotosController : ControllerBase
                 ExifData = p.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
-            }).ToList();
+            }).OrderBy(p => Guid.NewGuid()).ToList();
 
             _logger.Info("成功获取推荐照片 - 返回数量: {Count}", photosWithUrls.Count);
 
@@ -527,110 +558,6 @@ public class PhotosController : ControllerBase
                 {
                     Code = "SERVER_ERROR",
                     Message = "获取推荐照片失败",
-                    Details = ex.Message
-                }
-            });
-        }
-    }
-
-    [HttpGet("paginated")]
-    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetPhotosPaginated(
-        [FromQuery] int page = 1,
-        [FromQuery] int limit = 20,
-        [FromQuery] string? tags = null,
-        [FromQuery] string? folder = null,
-        [FromQuery] string? location = null,
-        [FromQuery] string? searchQuery = null)
-    {
-        try
-        {
-            var query = _context.Photos.AsQueryable();
-
-            // 默认排除未分类照片
-            if (string.IsNullOrEmpty(folder))
-            {
-                query = query.Where(p => p.Folder != "未分类");
-            }
-
-            // Apply filters
-            if (!string.IsNullOrEmpty(folder))
-            {
-                query = query.Where(p => p.Folder == folder);
-            }
-
-            if (!string.IsNullOrEmpty(location))
-            {
-                query = query.Where(p => p.Location == location);
-            }
-
-            if (!string.IsNullOrEmpty(tags))
-            {
-                var tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                query = query.Where(p => p.Tags.Any(t => tagList.Contains(t.Tag.Name)));
-            }
-
-            // Apply search query filter
-            if (!string.IsNullOrEmpty(searchQuery))
-            {
-                query = query.Where(p =>
-                    p.Title.Contains(searchQuery) ||
-                    p.Description.Contains(searchQuery) ||
-                    p.Folder.Contains(searchQuery) ||
-                    p.Location.Contains(searchQuery) ||
-                    p.Tags.Any(t => t.Tag.Name.Contains(searchQuery))
-                );
-            }
-
-            var total = await query.CountAsync();
-            var photos = await query
-                .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
-                .OrderByDescending(p => p.Date)
-                .Skip((page - 1) * limit)
-                .Take(limit)
-                .ToListAsync();
-
-            // 将FilePath转换为URL并转换为PhotoResponse
-            var photosWithUrls = photos.Select(p => new PhotoResponse
-            {
-                Id = p.Id,
-                FilePath = _photoStorageService.GetFileUrl(p.FilePath),
-                Title = p.Title,
-                Description = p.Description,
-                Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
-                Folder = p.Folder,
-                Location = p.Location,
-                Date = p.Date,
-                FileSizeKB = p.FileSizeKB,
-                ExifData = p.ExifData,
-                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
-            }).ToList();
-
-            _logger.Info("成功获取照片列表 - 总数: {Total}, 返回数量: {Count}", total, photosWithUrls.Count);
-
-            return Ok(new ApiResponse<List<PhotoResponse>>
-            {
-                Success = true,
-                Data = photosWithUrls,
-                Pagination = new PaginationInfo
-                {
-                    Page = page,
-                    Limit = limit,
-                    Total = total,
-                    Pages = (int)Math.Ceiling(total / (double)limit)
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "获取照片列表失败");
-            return StatusCode(500, new ApiResponse<List<PhotoResponse>>
-            {
-                Success = false,
-                Error = new ErrorResponse
-                {
-                    Code = "SERVER_ERROR",
-                    Message = "获取分页照片列表失败",
                     Details = ex.Message
                 }
             });
@@ -756,72 +683,6 @@ public class PhotosController : ControllerBase
                 {
                     Code = "SERVER_ERROR",
                     Message = "上传图片失败",
-                    Details = ex.Message
-                }
-            });
-        }
-    }
-
-    [HttpGet("uncategorized")]
-    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetUncategorizedPhotos(
-        [FromQuery] int page = 1,
-        [FromQuery] int limit = 20)
-    {
-        try
-        {
-            _logger.Info("开始获取未分类照片 - 页码: {Page}, 每页数量: {Limit}", page, limit);
-
-            var query = _context.Photos.Where(p => p.Folder == "未分类")
-                .OrderByDescending(p => p.Date);
-
-            var total = await query.CountAsync();
-            var uncategorizedPhotos = await query
-                .Skip((page - 1) * limit)
-                .Take(limit)
-                .ToListAsync();
-
-            // 将FilePath转换为URL并转换为PhotoResponse
-            var uncategorizedPhotosWithUrls = uncategorizedPhotos.Select(p => new PhotoResponse
-            {
-                Id = p.Id,
-                FilePath = _photoStorageService.GetFileUrl(p.FilePath),
-                Title = p.Title,
-                Description = p.Description,
-                Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
-                Folder = p.Folder,
-                Location = p.Location,
-                Date = p.Date,
-                CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath),
-                FileSizeKB = p.FileSizeKB,
-                ExifData = p.ExifData,
-            }).ToList();
-
-            _logger.Info("成功获取未分类照片 - 总数: {Total}, 返回数量: {Count}", total, uncategorizedPhotosWithUrls.Count);
-
-            return Ok(new ApiResponse<List<PhotoResponse>>
-            {
-                Success = true,
-                Data = uncategorizedPhotosWithUrls,
-                Pagination = new PaginationInfo
-                {
-                    Page = page,
-                    Limit = limit,
-                    Total = total,
-                    Pages = (int)Math.Ceiling(total / (double)limit)
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "获取照片列表失败");
-            return StatusCode(500, new ApiResponse<List<PhotoResponse>>
-            {
-                Success = false,
-                Error = new ErrorResponse
-                {
-                    Code = "SERVER_ERROR",
-                    Message = "获取未分类照片失败",
                     Details = ex.Message
                 }
             });
