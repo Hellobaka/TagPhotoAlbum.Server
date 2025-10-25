@@ -6,8 +6,14 @@ using System.Text;
 using TagPhotoAlbum.Server.Data;
 using TagPhotoAlbum.Server.Models;
 using TagPhotoAlbum.Server.Services;
+using NLog;
+using NLog.Web;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure NLog
+builder.Logging.ClearProviders();
+builder.Host.UseNLog();
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

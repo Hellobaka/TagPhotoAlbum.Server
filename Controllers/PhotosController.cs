@@ -5,6 +5,7 @@ using System.Linq;
 using TagPhotoAlbum.Server.Data;
 using TagPhotoAlbum.Server.Models;
 using TagPhotoAlbum.Server.Services;
+using NLog;
 
 namespace TagPhotoAlbum.Server.Controllers;
 
@@ -17,6 +18,7 @@ public class PhotosController : ControllerBase
     private readonly PhotoStorageService _photoStorageService;
     private readonly ImageCompressionService _imageCompressionService;
     private readonly ExifService _exifService;
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     public PhotosController(AppDbContext context, PhotoStorageService photoStorageService, ImageCompressionService imageCompressionService, ExifService exifService)
     {
@@ -37,6 +39,8 @@ public class PhotosController : ControllerBase
     {
         try
         {
+            _logger.Info("开始获取照片列表 - 页码: {Page}, 每页数量: {Limit}, 文件夹: {Folder}, 位置: {Location}, 标签: {Tags}, 搜索: {SearchQuery}",
+                page, limit, folder ?? "未指定", location ?? "未指定", tags ?? "未指定", searchQuery ?? "未指定");
             var query = _context.Photos.AsQueryable();
 
             // 默认排除未分类照片
@@ -99,6 +103,8 @@ public class PhotosController : ControllerBase
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
 
+            _logger.Info("成功获取照片列表 - 总数: {Total}, 返回数量: {Count}", total, photosWithUrls.Count);
+
             return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
@@ -114,6 +120,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "获取照片列表失败");
             return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
@@ -132,6 +139,7 @@ public class PhotosController : ControllerBase
     {
         try
         {
+            _logger.Info("开始获取照片详情 - 照片ID: {PhotoId}", id);
             var photo = await _context.Photos.FindAsync(id);
 
             if (photo == null)
@@ -164,6 +172,10 @@ public class PhotosController : ControllerBase
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
 
+            _logger.Info("成功获取照片详情 - 照片ID: {PhotoId}, 标题: {Title}", id, photoWithUrl.Title);
+
+            _logger.Info("成功更新照片 - 照片ID: {PhotoId}, 标题: {Title}", id, photoWithUrl.Title);
+
             return Ok(new ApiResponse<PhotoResponse>
             {
                 Success = true,
@@ -172,6 +184,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "操作照片失败");
             return StatusCode(500, new ApiResponse<PhotoResponse>
             {
                 Success = false,
@@ -190,6 +203,8 @@ public class PhotosController : ControllerBase
     {
         try
         {
+            _logger.Info("开始创建照片 - 标题: {Title}, 文件夹: {Folder}, 位置: {Location}",
+                photoCreate.Title, photoCreate.Folder ?? "未指定", photoCreate.Location ?? "未指定");
             if (string.IsNullOrEmpty(photoCreate.FilePath) || string.IsNullOrEmpty(photoCreate.Title))
             {
                 return BadRequest(new ApiResponse<PhotoResponse>
@@ -249,6 +264,8 @@ public class PhotosController : ControllerBase
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
 
+            _logger.Info("成功创建照片 - 照片ID: {PhotoId}, 标题: {Title}", photo.Id, photoWithUrl.Title);
+
             return CreatedAtAction(nameof(GetPhoto), new { id = photo.Id }, new ApiResponse<PhotoResponse>
             {
                 Success = true,
@@ -257,6 +274,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "操作照片失败");
             return StatusCode(500, new ApiResponse<PhotoResponse>
             {
                 Success = false,
@@ -275,6 +293,8 @@ public class PhotosController : ControllerBase
     {
         try
         {
+            _logger.Info("开始更新照片 - 照片ID: {PhotoId}, 标题: {Title}, 文件夹: {Folder}",
+                id, photoUpdate.Title, photoUpdate.Folder ?? "未指定");
             var photo = await _context.Photos.FindAsync(id);
 
             if (photo == null)
@@ -349,6 +369,10 @@ public class PhotosController : ControllerBase
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
             };
 
+            _logger.Info("成功获取照片详情 - 照片ID: {PhotoId}, 标题: {Title}", id, photoWithUrl.Title);
+
+            _logger.Info("成功更新照片 - 照片ID: {PhotoId}, 标题: {Title}", id, photoWithUrl.Title);
+
             return Ok(new ApiResponse<PhotoResponse>
             {
                 Success = true,
@@ -357,6 +381,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "操作照片失败");
             return StatusCode(500, new ApiResponse<PhotoResponse>
             {
                 Success = false,
@@ -375,6 +400,7 @@ public class PhotosController : ControllerBase
     {
         try
         {
+            _logger.Info("开始删除照片 - 照片ID: {PhotoId}", id);
             var photo = await _context.Photos.FindAsync(id);
 
             if (photo == null)
@@ -396,6 +422,8 @@ public class PhotosController : ControllerBase
             _context.Photos.Remove(photo);
             await _context.SaveChangesAsync();
 
+            _logger.Info("成功删除照片 - 照片ID: {PhotoId}, 标题: {Title}", id, photo.Title);
+
             return Ok(new ApiResponse<object>
             {
                 Success = true,
@@ -404,6 +432,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "删除照片失败");
             return StatusCode(500, new ApiResponse<object>
             {
                 Success = false,
@@ -424,6 +453,8 @@ public class PhotosController : ControllerBase
     {
         try
         {
+            _logger.Info("开始获取推荐照片 - 数量: {Limit}, 排除ID: {ExcludeIds}",
+                limit, excludeIds ?? "未指定");
             // 使用预设的筛选条件
             var query = _context.Photos
                 .Where(p => p.Folder == "艺术" || p.Tags.Any(o => o.Tag.Name == "艺术") || p.Tags.Any(o => o.Tag.Name == "抽象"));
@@ -478,6 +509,8 @@ public class PhotosController : ControllerBase
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
 
+            _logger.Info("成功获取推荐照片 - 返回数量: {Count}", photosWithUrls.Count);
+
             return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
@@ -486,6 +519,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "获取照片列表失败");
             return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
@@ -572,6 +606,8 @@ public class PhotosController : ControllerBase
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
             }).ToList();
 
+            _logger.Info("成功获取照片列表 - 总数: {Total}, 返回数量: {Count}", total, photosWithUrls.Count);
+
             return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
@@ -587,6 +623,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "获取照片列表失败");
             return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
@@ -605,6 +642,7 @@ public class PhotosController : ControllerBase
     {
         try
         {
+            _logger.Info("开始上传照片 - 文件数量: {FileCount}", Request.Form.Files.Count);
             var files = Request.Form.Files;
 
             if (files == null || files.Count == 0)
@@ -698,6 +736,9 @@ public class PhotosController : ControllerBase
                 ExifData = p.ExifData,
             }).ToList();
 
+            _logger.Info("成功上传照片 - 上传数量: {UploadedCount}, 总文件数量: {TotalFiles}",
+                uploadedPhotos.Count, files.Count);
+
             return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
@@ -707,6 +748,7 @@ public class PhotosController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "获取照片列表失败");
             return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,
@@ -721,15 +763,21 @@ public class PhotosController : ControllerBase
     }
 
     [HttpGet("uncategorized")]
-    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetUncategorizedPhotos()
+    public async Task<ActionResult<ApiResponse<List<PhotoResponse>>>> GetUncategorizedPhotos(
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 20)
     {
         try
         {
-            var allPhotos = _context.Photos.Where(p => p.Folder == "未分类")
+            _logger.Info("开始获取未分类照片 - 页码: {Page}, 每页数量: {Limit}", page, limit);
+
+            var query = _context.Photos.Where(p => p.Folder == "未分类")
                 .OrderByDescending(p => p.Date);
 
-            // 获取未分类的照片：文件夹为"未分类"的
-            var uncategorizedPhotos = await allPhotos
+            var total = await query.CountAsync();
+            var uncategorizedPhotos = await query
+                .Skip((page - 1) * limit)
+                .Take(limit)
                 .ToListAsync();
 
             // 将FilePath转换为URL并转换为PhotoResponse
@@ -749,14 +797,24 @@ public class PhotosController : ControllerBase
                 ExifData = p.ExifData,
             }).ToList();
 
+            _logger.Info("成功获取未分类照片 - 总数: {Total}, 返回数量: {Count}", total, uncategorizedPhotosWithUrls.Count);
+
             return Ok(new ApiResponse<List<PhotoResponse>>
             {
                 Success = true,
-                Data = uncategorizedPhotosWithUrls
+                Data = uncategorizedPhotosWithUrls,
+                Pagination = new PaginationInfo
+                {
+                    Page = page,
+                    Limit = limit,
+                    Total = total,
+                    Pages = (int)Math.Ceiling(total / (double)limit)
+                }
             });
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "获取照片列表失败");
             return StatusCode(500, new ApiResponse<List<PhotoResponse>>
             {
                 Success = false,

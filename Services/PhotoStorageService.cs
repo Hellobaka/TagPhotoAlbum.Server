@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using NLog;
 
 namespace TagPhotoAlbum.Server.Services;
 
@@ -11,11 +12,14 @@ public class PhotoStorageService
 {
     private readonly string[] _externalStoragePaths;
     private readonly string _primaryStoragePath;
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     public PhotoStorageService(IOptions<PhotoStorageOptions> options)
     {
         _externalStoragePaths = options.Value.ExternalStoragePaths;
         _primaryStoragePath = _externalStoragePaths.FirstOrDefault() ?? string.Empty;
+
+        _logger.Info("初始化PhotoStorageService - 存储路径数量: {StoragePathCount}", _externalStoragePaths.Length);
 
         // 确保所有外部存储目录存在
         foreach (var path in _externalStoragePaths)
@@ -23,6 +27,7 @@ public class PhotoStorageService
             if (!Directory.Exists(path))
             {
                 Directory.CreateDirectory(path);
+                _logger.Info("创建存储目录: {StoragePath}", path);
             }
         }
     }
@@ -32,6 +37,8 @@ public class PhotoStorageService
     /// </summary>
     public async Task<string> SaveFileAsync(IFormFile file, string folder)
     {
+        _logger.Info("开始保存文件 - 文件名: {FileName}, 文件夹: {Folder}", file.FileName, folder);
+
         if (string.IsNullOrEmpty(folder))
         {
             folder = "未分类";
@@ -42,17 +49,22 @@ public class PhotoStorageService
         if (!Directory.Exists(folderPath))
         {
             Directory.CreateDirectory(folderPath);
+            _logger.Info("创建文件夹: {FolderPath}", folderPath);
         }
 
         // 使用原文件名
         var fileName = Path.GetFileName(file.FileName);
         var filePath = Path.Combine(folderPath, fileName);
 
+        _logger.Info("准备保存文件 - 文件路径: {FilePath}", filePath);
+
         // 保存文件
         using (var stream = new FileStream(filePath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
         }
+
+        _logger.Info("文件保存成功 - 文件路径: {FilePath}", filePath);
 
         // 返回文件绝对路径
         return filePath;
@@ -63,6 +75,8 @@ public class PhotoStorageService
     /// </summary>
     public Task<string> MoveFileAsync(string currentFilePath, string newFolder)
     {
+        _logger.Info("开始移动文件 - 当前文件路径: {CurrentFilePath}, 新文件夹: {NewFolder}", currentFilePath, newFolder);
+
         if (string.IsNullOrEmpty(newFolder))
         {
             newFolder = "未分类";
@@ -74,12 +88,14 @@ public class PhotoStorageService
 
         if (string.IsNullOrEmpty(currentFolder) || string.IsNullOrEmpty(fileName))
         {
+            _logger.Error("移动文件失败 - 无效的文件路径: {CurrentFilePath}", currentFilePath);
             throw new ArgumentException("无效的文件路径");
         }
 
         // 如果文件夹相同，不需要移动
         if (currentFolder == newFolder)
         {
+            _logger.Info("文件夹相同，无需移动 - 文件路径: {CurrentFilePath}", currentFilePath);
             return Task.FromResult(currentFilePath);
         }
 
@@ -87,6 +103,7 @@ public class PhotoStorageService
         var currentStoragePath = _externalStoragePaths.FirstOrDefault(path => currentFilePath.StartsWith(path));
         if (string.IsNullOrEmpty(currentStoragePath))
         {
+            _logger.Error("移动文件失败 - 文件不在任何配置的存储路径中: {CurrentFilePath}", currentFilePath);
             throw new ArgumentException("文件不在任何配置的存储路径中");
         }
 
@@ -94,10 +111,13 @@ public class PhotoStorageService
         var newFolderPath = Path.Combine(currentStoragePath, newFolder);
         var newFilePath = Path.Combine(newFolderPath, fileName);
 
+        _logger.Info("计算新文件路径 - 新文件夹路径: {NewFolderPath}, 新文件路径: {NewFilePath}", newFolderPath, newFilePath);
+
         // 确保新文件夹存在
         if (!Directory.Exists(newFolderPath))
         {
             Directory.CreateDirectory(newFolderPath);
+            _logger.Info("创建新文件夹: {NewFolderPath}", newFolderPath);
         }
 
         // 移动文件
@@ -107,19 +127,23 @@ public class PhotoStorageService
             if (File.Exists(newFilePath))
             {
                 File.Delete(newFilePath);
+                _logger.Info("删除已存在的目标文件: {NewFilePath}", newFilePath);
             }
 
             File.Move(currentFilePath, newFilePath);
+            _logger.Info("文件移动成功 - 原路径: {CurrentFilePath}, 新路径: {NewFilePath}", currentFilePath, newFilePath);
 
             // 如果原文件夹为空，删除原文件夹
             var currentFolderPath = Path.GetDirectoryName(currentFilePath);
             if (Directory.Exists(currentFolderPath) && !Directory.EnumerateFileSystemEntries(currentFolderPath).Any())
             {
                 Directory.Delete(currentFolderPath);
+                _logger.Info("删除空的原文件夹: {CurrentFolderPath}", currentFolderPath);
             }
         }
 
         // 返回新的文件绝对路径
+        _logger.Info("文件移动完成 - 新文件路径: {NewFilePath}", newFilePath);
         return Task.FromResult(newFilePath);
     }
 
@@ -128,16 +152,24 @@ public class PhotoStorageService
     /// </summary>
     public void DeleteFile(string filePath)
     {
+        _logger.Info("开始删除文件 - 文件路径: {FilePath}", filePath);
+
         if (File.Exists(filePath))
         {
             File.Delete(filePath);
+            _logger.Info("文件删除成功 - 文件路径: {FilePath}", filePath);
 
             // 如果文件夹为空，删除文件夹
             var folderPath = Path.GetDirectoryName(filePath);
             if (Directory.Exists(folderPath) && !Directory.EnumerateFileSystemEntries(folderPath).Any())
             {
                 Directory.Delete(folderPath);
+                _logger.Info("删除空文件夹: {FolderPath}", folderPath);
             }
+        }
+        else
+        {
+            _logger.Warn("文件不存在，无法删除 - 文件路径: {FilePath}", filePath);
         }
     }
 
@@ -156,6 +188,7 @@ public class PhotoStorageService
     {
         if (string.IsNullOrEmpty(filePath))
         {
+            _logger.Debug("文件路径为空，返回空URL");
             return string.Empty;
         }
 
@@ -163,11 +196,16 @@ public class PhotoStorageService
         var storagePath = _externalStoragePaths.FirstOrDefault(path => filePath.StartsWith(path));
         if (string.IsNullOrEmpty(storagePath))
         {
+            _logger.Warn("文件不在任何配置的存储路径中: {FilePath}", filePath);
             return string.Empty;
         }
 
         var relativePath = filePath.Substring(storagePath.Length).Replace('\\', '/');
-        return $"/external{relativePath}";
+        var url = $"/external{relativePath}";
+
+        _logger.Debug("生成文件URL - 文件路径: {FilePath}, URL: {Url}", filePath, url);
+
+        return url;
     }
 
     /// <summary>

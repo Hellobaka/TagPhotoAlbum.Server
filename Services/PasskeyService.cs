@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using TagPhotoAlbum.Server.Data;
 using TagPhotoAlbum.Server.Models;
 using System.Text.Json.Serialization;
+using NLog;
 
 namespace TagPhotoAlbum.Server.Services;
 
@@ -16,6 +17,7 @@ public class PasskeyService
     private readonly AppDbContext _context;
     private readonly AuthService _authService;
     private readonly IConfiguration _configuration;
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     public PasskeyService(AppDbContext context, AuthService authService, IConfiguration configuration)
     {
@@ -26,16 +28,21 @@ public class PasskeyService
 
     public async Task<PasskeyRegistrationOptions> GenerateRegistrationOptions(string token)
     {
+        _logger.Info("开始生成通行密钥注册选项");
+
         var challenge = GenerateChallenge();
 
         // 强制验证用户身份
         var existingUser = await ValidateUserByToken(token);
         if (existingUser == null)
         {
+            _logger.Warn("生成通行密钥注册选项失败 - 无效的认证令牌");
             throw new UnauthorizedAccessException("无效的认证令牌，请先通过传统登录");
         }
 
         var userId = existingUser.Id.ToString();
+
+        _logger.Info("验证用户身份成功 - 用户ID: {UserId}, 用户名: {Username}", userId, existingUser.Username);
 
         var options = new PasskeyRegistrationOptions
         {
@@ -69,11 +76,15 @@ public class PasskeyService
         // Store challenge in session or temporary storage
         await StoreChallenge(challenge, userId);
 
+        _logger.Info("成功生成通行密钥注册选项 - 用户ID: {UserId}", userId);
+
         return options;
     }
 
     public async Task<PasskeyAuthenticationOptions> GenerateAuthenticationOptions(string? username = null)
     {
+        _logger.Info("开始生成通行密钥认证选项 - 用户名: {Username}", username ?? "未指定");
+
         var challenge = GenerateChallenge();
         var allowCredentials = new List<string>();
 
@@ -89,6 +100,7 @@ public class PasskeyService
                     .Where(p => p.IsActive)
                     .Select(p => p.CredentialId)
                     .ToList();
+                _logger.Info("找到用户通行密钥 - 用户名: {Username}, 通行密钥数量: {Count}", username, allowCredentials.Count);
             }
         }
 
@@ -104,11 +116,15 @@ public class PasskeyService
         // Store challenge in session or temporary storage
         await StoreChallenge(challenge, null);
 
+        _logger.Info("成功生成通行密钥认证选项");
+
         return options;
     }
 
-    public async Task<PasskeyRegistrationResult> RegisterPasskey(PasskeyRegistrationResponse response)
+    public async Task<PasskeyRegistrationResult> RegisterPasskey(PasskeyRegistrationResponse response, string deviceName)
     {
+        _logger.Info("开始注册通行密钥");
+
         try
         {
             // Parse and validate registration response
@@ -116,20 +132,25 @@ public class PasskeyService
             var clientData = JsonSerializer.Deserialize<ClientData>(clientDataJson);
             if (clientData == null || string.IsNullOrEmpty(clientData.Challenge))
             {
+                _logger.Warn("注册通行密钥失败 - 无效的挑战");
                 return new PasskeyRegistrationResult { Success = false, Error = "无效的挑战" };
             }
             string challenge = clientData.Challenge;
+
+            _logger.Info("解析客户端数据成功 - 挑战: {Challenge}", challenge);
 
             // Validate challenge FIRST before parsing client data
             var storedChallenge = await GetStoredChallenge(challenge);
             if (storedChallenge == null)
             {
+                _logger.Warn("注册通行密钥失败 - 无效的挑战: {Challenge}", challenge);
                 return new PasskeyRegistrationResult { Success = false, Error = "无效的挑战" };
             }
 
             // 修复挑战验证逻辑：客户端发送的挑战已经是Base64编码的，不需要再次编码
             if (clientData == null || clientData.Challenge != challenge)
             {
+                _logger.Warn("注册通行密钥失败 - 挑战验证失败: {Challenge}", challenge);
                 return new PasskeyRegistrationResult { Success = false, Error = "挑战验证失败" };
             }
 
@@ -138,10 +159,13 @@ public class PasskeyService
             var publicKey = response.Response.AttestationObject;
             var userHandle = int.Parse(storedChallenge?.UserId ?? "");
 
+            _logger.Info("提取凭证信息成功 - 凭证ID: {CredentialId}, 用户句柄: {UserHandle}", credentialId, userHandle);
+
             // Find user
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userHandle);
             if (user == null)
             {
+                _logger.Warn("注册通行密钥失败 - 用户不存在: {UserHandle}", userHandle);
                 return new PasskeyRegistrationResult { Success = false, Error = "用户不存在" };
             }
 
@@ -154,7 +178,7 @@ public class PasskeyService
                 UserHandle = userHandle,
                 Counter = 0,
                 DeviceType = "Platform Authenticator",
-                DeviceName = "Default Device",
+                DeviceName = string.IsNullOrEmpty(deviceName) ? "Default Device" : deviceName,
                 CreatedAt = DateTime.UtcNow,
                 LastUsedAt = DateTime.UtcNow,
                 IsActive = true
@@ -163,8 +187,12 @@ public class PasskeyService
             _context.Passkeys.Add(passkey);
             await _context.SaveChangesAsync();
 
+            _logger.Info("保存通行密钥记录成功 - 凭证ID: {CredentialId}, 用户ID: {UserId}", credentialId, user.Id);
+
             // Clean up stored challenge
             await RemoveChallenge(challenge);
+
+            _logger.Info("成功注册通行密钥 - 凭证ID: {CredentialId}", credentialId);
 
             return new PasskeyRegistrationResult
             {
@@ -174,12 +202,15 @@ public class PasskeyService
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "注册通行密钥时发生异常");
             return new PasskeyRegistrationResult { Success = false, Error = ex.Message };
         }
     }
 
     public async Task<PasskeyAuthenticationResult> AuthenticateWithPasskey(PasskeyAuthenticationResponse response)
     {
+        _logger.Info("开始通行密钥认证");
+
         try
         {
             // Parse and validate authentication response
@@ -187,19 +218,24 @@ public class PasskeyService
             var clientData = JsonSerializer.Deserialize<ClientData>(clientDataJson);
             if (clientData == null || string.IsNullOrEmpty(clientData.Challenge))
             {
+                _logger.Warn("通行密钥认证失败 - 无效的挑战");
                 return new PasskeyAuthenticationResult { Success = false, Error = "无效的挑战" };
             }
             string challenge = clientData.Challenge;
+
+            _logger.Info("解析客户端数据成功 - 挑战: {Challenge}", challenge);
 
             // Validate challenge
             var storedChallenge = await GetStoredChallenge(challenge);
             if (storedChallenge == null)
             {
+                _logger.Warn("通行密钥认证失败 - 无效的挑战: {Challenge}", challenge);
                 return new PasskeyAuthenticationResult { Success = false, Error = "无效的挑战" };
             }
 
             if (clientData == null || clientData.Challenge != challenge)
             {
+                _logger.Warn("通行密钥认证失败 - 挑战验证失败: {Challenge}", challenge);
                 return new PasskeyAuthenticationResult { Success = false, Error = "挑战验证失败" };
             }
 
@@ -210,12 +246,16 @@ public class PasskeyService
 
             if (passkey == null)
             {
+                _logger.Warn("通行密钥认证失败 - 无效的通行密钥: {CredentialId}", response.Id);
                 return new PasskeyAuthenticationResult { Success = false, Error = "无效的通行密钥" };
             }
+
+            _logger.Info("找到通行密钥 - 凭证ID: {CredentialId}, 用户ID: {UserId}", response.Id, passkey.UserId);
 
             // Verify signature (simplified - in production use proper cryptographic verification)
             if (!VerifySignature(response, passkey.PublicKey))
             {
+                _logger.Warn("通行密钥认证失败 - 签名验证失败: {CredentialId}", response.Id);
                 return new PasskeyAuthenticationResult { Success = false, Error = "签名验证失败" };
             }
 
@@ -224,11 +264,15 @@ public class PasskeyService
             passkey.Counter++;
             await _context.SaveChangesAsync();
 
+            _logger.Info("更新通行密钥使用记录 - 凭证ID: {CredentialId}, 计数器: {Counter}", response.Id, passkey.Counter);
+
             // Generate JWT token
             var token = _authService.GenerateJwtToken(passkey.User);
 
             // Clean up stored challenge
             await RemoveChallenge(challenge);
+
+            _logger.Info("通行密钥认证成功 - 凭证ID: {CredentialId}, 用户ID: {UserId}", response.Id, passkey.UserId);
 
             return new PasskeyAuthenticationResult
             {
@@ -239,32 +283,43 @@ public class PasskeyService
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "通行密钥认证时发生异常");
             return new PasskeyAuthenticationResult { Success = false, Error = ex.Message };
         }
     }
 
     public async Task<List<GetPasskeysResponse>> GetUserPasskeys(int userId)
     {
+        _logger.Info("开始获取用户通行密钥 - 用户ID: {UserId}", userId);
+
         var r = await _context.Passkeys
             .Where(p => p.UserId == userId && p.IsActive)
             .OrderByDescending(p => p.LastUsedAt)
             .ToListAsync();
+
+        _logger.Info("成功获取用户通行密钥 - 用户ID: {UserId}, 数量: {Count}", userId, r.Count);
 
         return r.Select(x => new GetPasskeysResponse { Id = x.Id, DeviceName = x.DeviceName }).ToList();
     }
 
     public async Task<bool> DeletePasskey(int passkeyId, int userId)
     {
+        _logger.Info("开始删除通行密钥 - 通行密钥ID: {PasskeyId}, 用户ID: {UserId}", passkeyId, userId);
+
         var passkey = await _context.Passkeys
             .FirstOrDefaultAsync(p => p.Id == passkeyId && p.UserId == userId);
 
         if (passkey == null)
         {
+            _logger.Warn("删除通行密钥失败 - 通行密钥不存在: {PasskeyId}", passkeyId);
             return false;
         }
 
         passkey.IsActive = false;
         await _context.SaveChangesAsync();
+
+        _logger.Info("成功删除通行密钥 - 通行密钥ID: {PasskeyId}, 用户ID: {UserId}", passkeyId, userId);
+
         return true;
     }
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TagPhotoAlbum.Server.Models;
 using TagPhotoAlbum.Server.Services;
+using NLog;
 
 namespace TagPhotoAlbum.Server.Controllers;
 
@@ -9,6 +10,7 @@ namespace TagPhotoAlbum.Server.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     public AuthController(AuthService authService)
     {
@@ -20,6 +22,7 @@ public class AuthController : ControllerBase
     {
         try
         {
+            _logger.Info("开始用户登录 - 用户名: {Username}", request.Username);
             // Validate secure request
             if (!_authService.ValidateSecureRequest(request))
             {
@@ -53,6 +56,8 @@ public class AuthController : ControllerBase
             var serverTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var nextNonceSeed = _authService.GenerateNonceSeed();
 
+            _logger.Info("用户登录成功 - 用户名: {Username}", request.Username);
+
             return Ok(new ApiResponse<SecureLoginResponse>
             {
                 Success = true,
@@ -72,6 +77,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "用户登录失败");
             return StatusCode(500, new ApiResponse<SecureLoginResponse>
             {
                 Success = false,
@@ -90,7 +96,10 @@ public class AuthController : ControllerBase
     {
         try
         {
+            _logger.Info("开始生成Nonce种子");
             var nonceSeed = _authService.GenerateNonceSeed();
+
+            _logger.Info("成功生成Nonce种子");
 
             return Ok(new ApiResponse<string>
             {
@@ -100,6 +109,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "生成Nonce种子失败");
             return StatusCode(500, new ApiResponse<string>
             {
                 Success = false,

@@ -1,21 +1,26 @@
 using System.Text.Json;
 using ImageMagick;
+using NLog;
 
 namespace TagPhotoAlbum.Server.Services;
 
 public class ExifService
 {
     private static string[] FilterExifKey { get; set; } = ["MakerNote"];
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     /// <summary>
     /// 从图片文件中提取EXIF信息
     /// </summary>
     public string? ExtractExifData(string filePath)
     {
+        _logger.Info("开始提取EXIF信息 - 文件路径: {FilePath}", filePath);
+
         try
         {
             if (!File.Exists(filePath))
             {
+                _logger.Warn("文件不存在，无法提取EXIF信息: {FilePath}", filePath);
                 return null;
             }
 
@@ -25,6 +30,7 @@ public class ExifService
 
             if (!supportedFormats.Contains(extension))
             {
+                _logger.Info("文件格式不支持EXIF提取: {Extension}, 文件路径: {FilePath}", extension, filePath);
                 return null;
             }
 
@@ -33,10 +39,14 @@ public class ExifService
             // 使用ImageMagick提取EXIF信息
             using var image = new MagickImage(filePath);
 
+            _logger.Debug("成功加载图片文件: {FilePath}", filePath);
+
             // 提取所有EXIF属性
             var profile = image.GetExifProfile();
             if (profile != null)
             {
+                _logger.Debug("找到EXIF配置文件，开始提取标签");
+
                 var exifValues = new Dictionary<string, object>();
 
                 foreach (var value in profile.Values)
@@ -46,6 +56,7 @@ public class ExifService
                         var tagName = value.Tag.ToString();
                         if (FilterExifKey.Contains(tagName))
                         {
+                            _logger.Debug("跳过过滤的EXIF标签: {TagName}", tagName);
                             continue;
                         }
                         var tagValue = GetTagValue(value);
@@ -53,18 +64,20 @@ public class ExifService
                         if (tagValue != null)
                         {
                             exifValues[tagName] = tagValue;
+                            _logger.Debug("提取EXIF标签: {TagName}", tagName);
                         }
                     }
                     catch (Exception ex)
                     {
                         // 跳过无法处理的标签
-                        Console.WriteLine($"处理标签 {value.Tag} 时出错: {ex.Message}");
+                        _logger.Warn(ex, "处理标签 {TagName} 时出错", value.Tag);
                     }
                 }
 
                 if (exifValues.Count > 0)
                 {
                     exifData["Exif"] = exifValues;
+                    _logger.Info("成功提取EXIF数据 - 标签数量: {TagCount}", exifValues.Count);
                 }
             }
 
@@ -82,16 +95,26 @@ public class ExifService
             //     exifData["ImageInfo"] = imageInfo;
             // }
 
-            return exifData.Count > 0 ? JsonSerializer.Serialize(exifData, new JsonSerializerOptions
+            if (exifData.Count > 0)
             {
-                WriteIndented = false,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            }) : null;
+                var json = JsonSerializer.Serialize(exifData, new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                _logger.Info("EXIF信息提取完成 - JSON长度: {JsonLength}", json.Length);
+                return json;
+            }
+            else
+            {
+                _logger.Info("未找到EXIF信息: {FilePath}", filePath);
+                return null;
+            }
         }
         catch (Exception ex)
         {
             // 记录错误但不抛出异常，避免影响主流程
-            Console.WriteLine($"提取EXIF信息失败: {ex.Message}");
+            _logger.Error(ex, "提取EXIF信息失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -229,6 +252,8 @@ public class ExifService
     /// </summary>
     public Dictionary<string, string?> BatchExtractExifData(List<string> filePaths)
     {
+        _logger.Info("开始批量提取EXIF信息 - 文件数量: {FileCount}", filePaths.Count);
+
         var results = new Dictionary<string, string?>();
 
         foreach (var filePath in filePaths)
@@ -236,6 +261,8 @@ public class ExifService
             var exifData = ExtractExifData(filePath);
             results[filePath] = exifData;
         }
+
+        _logger.Info("批量提取EXIF信息完成 - 处理文件数量: {ProcessedCount}", results.Count);
 
         return results;
     }

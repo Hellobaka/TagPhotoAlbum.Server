@@ -478,9 +478,13 @@ GET /api/photos/recommend?excludeIds=1,2,3
 }
 ```
 
-### 获取未分类照片
+### 获取未分类照片（支持分页）
 
 **GET** `/photos/uncategorized`
+
+查询参数：
+- `page` (可选): 页码，默认 1
+- `limit` (可选): 每页数量，默认 20
 
 响应：
 ```json
@@ -495,16 +499,26 @@ GET /api/photos/recommend?excludeIds=1,2,3
       "tags": ["string"],
       "folder": "string",
       "location": "string",
-      "date": "string"
+      "date": "string",
+      "fileSizeKB": "number",
+      "exifData": "object",
+      "compressedFilePath": "string",
+      "hasCompressedImage": "boolean"
     }
-  ]
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "pages": 5
+  }
 }
 ```
 
 **前端使用说明：**
-- 未分类页面独立加载，不参与懒加载
-- 每次切换到未分类页面都会重新获取数据
-- 支持批量分类操作
+- 未分类页面现在支持分页加载，首次只加载第1页（20张照片）
+- 滚动到底部时自动加载下一页
+- 支持懒加载，减少初始加载时间
 - 未分类照片同样包含压缩图片信息，便于快速预览
 
 ## 错误处理
@@ -559,7 +573,7 @@ GET /api/photos/recommend?excludeIds=1,2,3
    - `searchPhotos(query)`: 搜索照片
    - `getRecommendPhotos(page, limit, excludeIds)`: 获取推荐照片（支持分页和去重）
    - `uploadPhotos(formData)`: 上传图片（支持多文件）
-   - `getUncategorizedPhotos()`: 获取未分类照片
+   - `getUncategorizedPhotos(page, limit)`: 获取未分类照片（支持分页）
 
 ### 状态管理
 
@@ -582,6 +596,7 @@ GET /api/photos/recommend?excludeIds=1,2,3
    - **新增方法**：
      - `loadFirstPage()`: 加载第一页数据
      - `loadMorePhotos()`: 加载更多照片（懒加载）
+     - `loadMoreUncategorizedPhotos()`: 加载更多未分类照片（懒加载）
      - `getTagsData()`: 按需获取标签数据
      - `getFoldersData()`: 按需获取文件夹数据
      - `getLocationsData()`: 按需获取地点数据
@@ -707,7 +722,8 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 6. 分类对话框支持批量操作，提高分类效率
 7. 懒加载功能需要浏览器支持 Intersection Observer API
 8. 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片，避免重复显示
-9. 筛选数据按需加载，减少初始请求数量
-10. **图片压缩**: 上传图片时自动生成压缩版本，客户端可根据网络状况选择加载原图或压缩图
-11. **压缩配置**: 压缩质量可在 `appsettings.json` 中配置，默认80%
-12. **安全要求**: 生产环境必须配置HTTPS和安全密钥
+9. 未分类页面现在支持分页懒加载，可以滚动加载更多未分类照片
+10. 筛选数据按需加载，减少初始请求数量
+11. **图片压缩**: 上传图片时自动生成压缩版本，客户端可根据网络状况选择加载原图或压缩图
+12. **压缩配置**: 压缩质量可在 `appsettings.json` 中配置，默认80%
+13. **安全要求**: 生产环境必须配置HTTPS和安全密钥

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TagPhotoAlbum.Server.Data;
 using TagPhotoAlbum.Server.Models;
+using NLog;
 
 namespace TagPhotoAlbum.Server.Controllers;
 
@@ -12,6 +13,7 @@ namespace TagPhotoAlbum.Server.Controllers;
 public class SearchController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     public SearchController(AppDbContext context)
     {
@@ -23,6 +25,7 @@ public class SearchController : ControllerBase
     {
         try
         {
+            _logger.Info("开始搜索照片 - 关键词: {Query}", q);
             if (string.IsNullOrEmpty(q))
             {
                 return BadRequest(new ApiResponse<List<Photo>>
@@ -45,6 +48,8 @@ public class SearchController : ControllerBase
                 .OrderByDescending(p => p.Date)
                 .ToListAsync();
 
+            _logger.Info("搜索照片成功 - 关键词: {Query}, 结果数量: {Count}", q, photos.Count);
+
             return Ok(new ApiResponse<List<Photo>>
             {
                 Success = true,
@@ -53,6 +58,7 @@ public class SearchController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "搜索照片失败 - 关键词: {Query}", q);
             return StatusCode(500, new ApiResponse<List<Photo>>
             {
                 Success = false,
