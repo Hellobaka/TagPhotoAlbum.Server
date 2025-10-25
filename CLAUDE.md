@@ -10,7 +10,7 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
 
 ### Build and Run
 - `dotnet build` - Build the project
-- `dotnet run` - Run the development server (defaults to https://localhost:7000 and http://localhost:5000)
+- `dotnet run` - Run the development server (defaults to http://localhost:5085 and https://localhost:7088)
 - `dotnet watch` - Run with hot reload for development
 
 ### Database
@@ -23,30 +23,35 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
 ### Project Structure
 - **Controllers/**: API endpoints organized by resource type
   - `PhotosController.cs`: Photo CRUD operations, upload, uncategorized photos, recommendations
-  - `AuthController.cs`: User authentication (login)
+  - `AuthController.cs`: User authentication (login, secure login, passkey)
   - `SearchController.cs`: Photo search functionality
   - `MetadataController.cs`: Tags, folders, and locations metadata
+  - `PasskeyController.cs`: WebAuthn passkey authentication
 - **Models/**: Data models and API response types
-  - `Photo.cs`: Photo entity with URL, title, tags, folder, location, date
+  - `Photo.cs`: Photo entity with file path, title, tags, folder, location, date
   - `User.cs`: User entity for authentication
   - `ApiResponse.cs`: Standard API response wrapper with success flag, data, error, pagination, and message
+  - `Passkey.cs`: WebAuthn passkey storage
 - **Data/**: Database context and seed data
   - `AppDbContext.cs`: Entity Framework context with SQLite configuration
   - `SeedData.cs`: Initial sample photos and user data
 - **Services/**: Business logic services
   - `AuthService.cs`: Authentication and JWT token generation
   - `PhotoStorageService.cs`: External file storage management with multiple path support
+  - `ImageCompressionService.cs`: Image compression with configurable quality
+  - `ExifService.cs`: EXIF metadata extraction
+  - `PasskeyService.cs`: WebAuthn passkey management
 
 ### API Design
 - **Base URL**: `/api`
-- **Authentication**: JWT Bearer tokens required for all endpoints except `/api/auth/login`
+- **Authentication**: JWT Bearer tokens required for all endpoints except `/api/auth/login` and `/api/auth/secure-login`
 - **Response Format**: Standardized `ApiResponse<T>` wrapper with success flag, data, error details, and optional pagination
 - **Error Handling**: Consistent error responses with error codes and messages
 
 ### Key Features
 - **Photo Management**: Full CRUD operations with filtering by folder, location, and tags
 - **File Upload**: Multi-file upload with external storage system
-  - Files stored in multiple configurable external directories (default: `D:\Photos\Album`, `D:\Photos\Archive`)
+  - Files stored in multiple configurable external directories (default: `E:\图`)
   - Preserves original filenames
   - Automatically overwrites existing files with same name
   - Updates existing photo records when re-uploading same file
@@ -60,21 +65,35 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
 - **Metadata**: Dynamic extraction of tags, folders, and locations from existing photos
 - **Uncategorized Photos**: Photos in "未分类" folder (folder-based classification)
 - **Recommendations**: Art-focused photo recommendations with random selection
+- **Image Compression**: Automatic image compression with configurable quality
+- **EXIF Extraction**: Automatic extraction of EXIF metadata from uploaded images
+- **Passkey Authentication**: WebAuthn support for passwordless authentication
 
 ### Security
 - JWT authentication with configurable issuer, audience, and signing key
+- Secure login with HMAC-SHA256 signature verification
+- WebAuthn passkey authentication support
 - CORS configured to allow any origin for development
 - All controllers except Auth require `[Authorize]` attribute
 
 ### Data Storage
-- Photos stored with relative URLs pointing to files in `wwwroot/uploads/`
-- Tags stored as JSON-serialized string arrays in SQLite
+- Photos store absolute file paths in `FilePath` field
+- Tags stored using many-to-many relationship with `PhotoTag` join table
 - Automatic database creation and seeding on application startup
+- External file storage with configurable paths
+
+### Configuration
+Key configuration in `appsettings.json`:
+- **External Storage Paths**: `PhotoStorage:ExternalStoragePaths` array
+- **Image Compression**: `ImageCompression:Quality`, `EnableCompress`
+- **JWT Settings**: `Jwt:Key`, `Issuer`, `Audience`, `ExpireMinutes`
+- **Passkey Settings**: `Passkey:RelyingParty` configuration
+- **Recommend Tags**: `RecommendTags` array for recommendation filtering
 
 ## Important Notes
 
-- **External Storage**: Files are stored in multiple configured external directories (default: `D:\Photos\Album`, `D:\Photos\Archive`)
-- **Database Storage**: Photos store absolute file paths in `FilePath` field (replaced URL field)
+- **External Storage**: Files are stored in multiple configured external directories (default: `E:\图`)
+- **Database Storage**: Photos store absolute file paths in `FilePath` field
 - **File Organization**: Files are automatically organized by folder structure
 - **File Movement**: When folder is changed, files are automatically moved to the new folder directory
 - **Static File Serving**: External storage is served via `/external` URL path
@@ -84,4 +103,47 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
 - **File Cleanup**: Empty directories are automatically cleaned up when files are moved or deleted
 - **Configuration**: External storage paths are configurable via `appsettings.json` as an array
 - **Data Migration**: Existing data can be discarded as test data is not important
-- **Authentication**: Uses simple password comparison (consider implementing proper password hashing for production)
+- **Authentication**: Supports traditional login, secure login with HMAC signatures, and WebAuthn passkeys
+- **Image Compression**: Automatic compression with configurable quality (default: 60%)
+- **EXIF Data**: Automatically extracted from uploaded images and stored in database
+- **Logging**: Uses NLog for comprehensive logging throughout the application
+
+## Development Workflow
+
+1. **Database Setup**: Database is automatically created and seeded on first run
+2. **External Storage**: Configure storage paths in `appsettings.json` before first run
+3. **Authentication**: Use `/api/auth/login` for traditional login or `/api/auth/secure-login` for enhanced security
+4. **File Upload**: Upload files via `/api/photos/upload` endpoint with multipart/form-data
+5. **Photo Management**: Use standard CRUD endpoints for photo operations with filtering and pagination
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - Traditional username/password login
+- `POST /api/auth/secure-login` - Secure login with HMAC signature
+- `GET /api/auth/nonce-seed` - Get nonce seed for secure login
+- `GET /api/auth/validate-token` - Validate JWT token
+
+### Photos
+- `GET /api/photos` - Get photos with pagination and filtering
+- `GET /api/photos/{id}` - Get single photo
+- `POST /api/photos` - Create photo
+- `PUT /api/photos/{id}` - Update photo
+- `DELETE /api/photos/{id}` - Delete photo
+- `POST /api/photos/upload` - Upload photos
+- `GET /api/photos/recommend` - Get recommended photos
+- `GET /api/photos/uncategorized` - Get uncategorized photos
+
+### Metadata
+- `GET /api/metadata/tags` - Get all tags with usage counts
+- `GET /api/metadata/folders` - Get all folders
+- `GET /api/metadata/locations` - Get all locations
+
+### Search
+- `GET /api/search` - Search photos by query
+
+### Passkeys
+- `POST /api/passkey/register` - Register passkey
+- `POST /api/passkey/authenticate` - Authenticate with passkey
+- `GET /api/passkey` - Get user passkeys
+- `DELETE /api/passkey/{id}` - Delete passkey

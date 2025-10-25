@@ -2,53 +2,24 @@
 
 ## 概述
 
-本文档描述了 Tag Photo Album 应用的完整 API 接口规范。应用使用 Axios 作为 HTTP 客户端，支持照片管理、标签分类、文件夹组织和地点标注等功能。
+本文档描述了 Tag Photo Album 应用的完整 API 接口规范。后端使用 ASP.NET Core 9.0，支持照片管理、标签分类、文件夹组织和地点标注等功能。
 
 ## 基础信息
 
-- **基础 URL**: `http://localhost:5085/api`
-- **认证方式**: JWT Token
+- **基础 URL**: `http://localhost:5085/api` 或 `https://localhost:7088/api`
+- **认证方式**: JWT Bearer Token
 - **数据格式**: JSON
-- **超时时间**: 10秒
+- **响应格式**: 标准化的 `ApiResponse<T>` 包装器
 
 ## 认证接口
 
-### 用户登录（传统方式 - 向后兼容）
-
-**POST** `/auth/login`
-
-请求体：
-```json
-{
-  "username": "string",
-  "password": "string"
-}
-```
-
-响应：
-```json
-{
-  "success": true,
-  "user": {
-    "username": "string",
-    "name": "string",
-    "email": "string"
-  },
-  "token": "jwt_token_string"
-}
-```
-
-**安全说明：**
-- 此接口使用明文密码传输，建议使用安全登录接口
-- 仅用于向后兼容，新应用应使用安全登录接口
-
 ### 安全用户登录（推荐使用）
 
-**POST** `/auth/secure-login`
+**POST** `/api/auth/login`
 
 **安全特性：**
 - HMAC-SHA256 签名验证
-- 时间戳防重放攻击
+- 时间戳防重放攻击（5分钟有效期）
 - Nonce 防重放攻击
 - 前端密码哈希
 
@@ -67,14 +38,16 @@
 ```json
 {
   "success": true,
-  "user": {
-    "username": "string",
-    "name": "string",
-    "email": "string"
-  },
-  "token": "jwt_token_string",
-  "serverTimestamp": "number",
-  "nextNonceSeed": "string"
+  "data": {
+    "user": {
+      "username": "string",
+      "name": "string",
+      "email": "string"
+    },
+    "token": "jwt_token_string",
+    "serverTimestamp": "number",
+    "nextNonceSeed": "string"
+  }
 }
 ```
 
@@ -87,7 +60,7 @@
 
 ### 获取Nonce种子
 
-**GET** `/auth/nonce-seed`
+**GET** `/api/auth/nonce-seed`
 
 响应：
 ```json
@@ -97,30 +70,11 @@
 }
 ```
 
-### 验证令牌有效性
-
-**GET** `/auth/validate-token`
-
-请求头：
-```
-Authorization: Bearer {jwt_token}
-```
-
-响应：
-```json
-{
-  "success": true,
-  "data": {
-    "message": "令牌有效"
-  }
-}
-```
-
 ## 照片管理接口
 
 ### 获取照片列表（分页）
 
-**GET** `/photos`
+**GET** `/api/photos`
 
 查询参数：
 - `page` (可选): 页码，默认 1
@@ -129,6 +83,8 @@ Authorization: Bearer {jwt_token}
 - `location` (可选): 按地点筛选
 - `tags` (可选): 按标签筛选，多个标签用逗号分隔
 - `searchQuery` (可选): 搜索关键词
+- `sortBy` (可选): 排序字段，支持 `filename`、`size`、`date`（默认）
+- `sortOrder` (可选): 排序顺序，`asc` 或 `desc`（默认）
 
 响应：
 ```json
@@ -159,52 +115,14 @@ Authorization: Bearer {jwt_token}
 }
 ```
 
-**前端使用说明：**
-- 标签、文件夹、地点页面使用分页加载，首次加载第1页（20张照片）
-- 滚动到底部时自动加载下一页
-- 支持懒加载，减少初始加载时间
-- 所有照片响应包含压缩图片信息，客户端可根据网络状况选择加载原图或压缩图
-
-### 分页获取照片列表（前端专用）
-
-**前端 API 方法**: `getPhotosPaginated(page, limit, filters)`
-
-**参数说明：**
-- `page` (可选): 页码，默认 1
-- `limit` (可选): 每页数量，默认 20
-- `filters` (可选): 筛选条件对象
-  - `tags` (可选): 标签数组，如 `['风景', '人物']`
-  - `folder` (可选): 文件夹名称
-  - `location` (可选): 地点名称
-  - `searchQuery` (可选): 搜索关键词
-
-**使用示例：**
-```javascript
-// 加载第一页照片
-photoApi.getPhotosPaginated(1, 20)
-
-// 按标签筛选
-photoApi.getPhotosPaginated(1, 20, {
-  tags: ['风景', '人物']
-})
-
-// 按文件夹和搜索关键词筛选
-photoApi.getPhotosPaginated(1, 20, {
-  folder: '旅行',
-  searchQuery: '海边'
-})
-```
-
-**前端集成说明：**
-- 该方法是对基础 `/photos` 接口的封装，提供更便捷的筛选参数处理
-- 自动将标签数组转换为逗号分隔的字符串
-- 支持组合筛选条件
-- 主要用于标签、文件夹、地点页面的懒加载功能
-- 所有返回的照片数据包含压缩图片信息，便于客户端优化加载
+**说明：**
+- 默认排除文件夹为"未分类"的照片，除非明确指定 `folder=未分类`
+- 标签筛选支持多标签同时筛选
+- 支持按文件名、文件大小、日期排序
 
 ### 获取单个照片
 
-**GET** `/photos/:id`
+**GET** `/api/photos/{id}`
 
 响应：
 ```json
@@ -219,6 +137,8 @@ photoApi.getPhotosPaginated(1, 20, {
     "folder": "string",
     "location": "string",
     "date": "string",
+    "fileSizeKB": "number",
+    "exifData": "object",
     "compressedFilePath": "string",
     "hasCompressedImage": "boolean"
   }
@@ -227,7 +147,7 @@ photoApi.getPhotosPaginated(1, 20, {
 
 ### 创建照片
 
-**POST** `/photos`
+**POST** `/api/photos`
 
 请求体：
 ```json
@@ -254,6 +174,8 @@ photoApi.getPhotosPaginated(1, 20, {
     "folder": "string",
     "location": "string",
     "date": "string",
+    "fileSizeKB": "number",
+    "exifData": "object",
     "compressedFilePath": "string",
     "hasCompressedImage": "boolean"
   }
@@ -262,7 +184,7 @@ photoApi.getPhotosPaginated(1, 20, {
 
 ### 更新照片
 
-**PUT** `/photos/:id`
+**PUT** `/api/photos/{id}`
 
 请求体：
 ```json
@@ -288,6 +210,8 @@ photoApi.getPhotosPaginated(1, 20, {
     "folder": "string",
     "location": "string",
     "date": "string",
+    "fileSizeKB": "number",
+    "exifData": "object",
     "compressedFilePath": "string",
     "hasCompressedImage": "boolean"
   }
@@ -296,161 +220,21 @@ photoApi.getPhotosPaginated(1, 20, {
 
 ### 删除照片
 
-**DELETE** `/photos/:id`
-
-响应：
-```json
-{
-  "success": true,
-  "message": "照片删除成功"
-}
-```
-
-## 元数据接口
-
-### 获取所有标签（包含使用次数）
-
-**GET** `/metadata/tags`
+**DELETE** `/api/photos/{id}`
 
 响应：
 ```json
 {
   "success": true,
   "data": {
-    "tags": [
-      {
-        "name": "string",
-        "count": "number"
-      }
-    ],
-    "totalCount": "number"
+    "message": "照片删除成功"
   }
 }
 ```
 
-### 获取所有文件夹
-
-**GET** `/metadata/folders`
-
-响应：
-```json
-{
-  "success": true,
-  "data": ["string"]
-}
-```
-
-### 获取文件夹数量
-
-**GET** `/metadata/folders/count`
-
-响应：
-```json
-{
-  "success": true,
-  "data": "number"
-}
-```
-
-### 获取所有地点
-
-**GET** `/metadata/locations`
-
-响应：
-```json
-{
-  "success": true,
-  "data": ["string"]
-}
-```
-
-### 获取地点数量
-
-**GET** `/metadata/locations/count`
-
-响应：
-```json
-{
-  "success": true,
-  "data": "number"
-}
-```
-
-## 搜索接口
-
-### 搜索照片
-
-**GET** `/search`
-
-查询参数：
-- `q` (必需): 搜索关键词
-
-响应：
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "number",
-      "filePath": "string",
-      "title": "string",
-      "description": "string",
-      "tags": ["string"],
-      "folder": "string",
-      "location": "string",
-      "date": "string"
-    }
-  ]
-}
-```
-
-### 获取推荐照片
-
-**GET** `/photos/recommend`
-
-查询参数：
-- `limit` (可选): 每页数量，默认 20
-- `excludeIds` (可选): 排除的照片ID列表，用逗号分隔
-
-响应：
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "number",
-      "filePath": "string",
-      "title": "string",
-      "description": "string",
-      "tags": ["string"],
-      "folder": "string",
-      "location": "string",
-      "date": "string",
-      "compressedFilePath": "string",
-      "hasCompressedImage": "boolean"
-    }
-  ]
-}
-```
-
-**前端使用说明：**
-- 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片
-- 使用 `excludeIds` 参数避免重复显示已加载的照片
-- 每次请求返回随机推荐的艺术类照片（文件夹为"艺术"或标签包含"艺术"、"抽象"）
-- 推荐照片同样包含压缩图片信息，优化加载体验
-
-**使用示例：**
-```javascript
-// 加载任意推荐照片
-GET /api/photos/recommend?limit=20
-
-// 加载新的数据但是排除已显示的ID为1,2,3的照片
-GET /api/photos/recommend?excludeIds=1,2,3
-```
-
 ### 上传图片
 
-**POST** `/photos/upload`
+**POST** `/api/photos/upload`
 
 请求头：
 - `Content-Type: multipart/form-data`
@@ -458,33 +242,8 @@ GET /api/photos/recommend?excludeIds=1,2,3
 请求体：
 - `files` (必需): 图片文件数组
 
-响应：
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "number",
-      "filePath": "string",
-      "title": "string",
-      "description": "string",
-      "tags": ["string"],
-      "folder": "string",
-      "location": "string",
-      "date": "string"
-    }
-  ],
-  "message": "成功上传 5 张图片"
-}
-```
-
-### 获取未分类照片（支持分页）
-
-**GET** `/photos/uncategorized`
-
-查询参数：
-- `page` (可选): 页码，默认 1
-- `limit` (可选): 每页数量，默认 20
+支持的文件类型：
+- `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.webp`, `.svg`
 
 响应：
 ```json
@@ -506,20 +265,325 @@ GET /api/photos/recommend?excludeIds=1,2,3
       "hasCompressedImage": "boolean"
     }
   ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 100,
-    "pages": 5
+  "message": "成功上传 5 张图片"
+}
+```
+
+**说明：**
+- 上传的文件自动保存到外部存储
+- 自动提取EXIF元数据
+- 自动生成压缩版本（如果启用压缩）
+- 如果文件已存在，会更新现有记录
+
+### 获取推荐照片
+
+**GET** `/api/photos/recommend`
+
+查询参数：
+- `limit` (可选): 每页数量，默认 20
+- `excludeIds` (可选): 排除的照片ID列表，用逗号分隔
+
+响应：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "number",
+      "filePath": "string",
+      "title": "string",
+      "description": "string",
+      "tags": ["string"],
+      "folder": "string",
+      "location": "string",
+      "date": "string",
+      "fileSizeKB": "number",
+      "exifData": "object",
+      "compressedFilePath": "string",
+      "hasCompressedImage": "boolean"
+    }
+  ]
+}
+```
+
+**说明：**
+- 推荐基于配置的 `RecommendTags`（如"卡通"、"CG"）
+- 支持排除已显示的照片避免重复
+- 返回随机推荐的艺术类照片
+
+## 元数据接口
+
+### 获取所有标签（包含使用次数）
+
+**GET** `/api/metadata/tags`
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "tags": [
+      {
+        "name": "string",
+        "count": "number"
+      }
+    ],
+    "totalCount": "number"
   }
 }
 ```
 
-**前端使用说明：**
-- 未分类页面现在支持分页加载，首次只加载第1页（20张照片）
-- 滚动到底部时自动加载下一页
-- 支持懒加载，减少初始加载时间
-- 未分类照片同样包含压缩图片信息，便于快速预览
+### 获取所有文件夹
+
+**GET** `/api/metadata/folders`
+
+响应：
+```json
+{
+  "success": true,
+  "data": ["string"]
+}
+```
+
+### 获取文件夹数量
+
+**GET** `/api/metadata/folders/count`
+
+响应：
+```json
+{
+  "success": true,
+  "data": "number"
+}
+```
+
+### 获取所有地点
+
+**GET** `/api/metadata/locations`
+
+响应：
+```json
+{
+  "success": true,
+  "data": ["string"]
+}
+```
+
+### 获取地点数量
+
+**GET** `/api/metadata/locations/count`
+
+响应：
+```json
+{
+  "success": true,
+  "data": "number"
+}
+```
+
+## 搜索接口
+
+### 搜索照片
+
+**GET** `/api/search`
+
+查询参数：
+- `q` (必需): 搜索关键词
+
+响应：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "number",
+      "filePath": "string",
+      "title": "string",
+      "description": "string",
+      "tags": ["string"],
+      "folder": "string",
+      "location": "string",
+      "date": "string",
+      "fileSizeKB": "number",
+      "exifData": "object"
+    }
+  ]
+}
+```
+
+**说明：**
+- 支持在标题、描述、标签、文件夹、地点中搜索
+- 按日期降序排列
+
+## 通行密钥接口 (WebAuthn)
+
+### 获取注册选项
+
+**POST** `/api/passkey/registration-options`
+
+请求头：
+- `Authorization: Bearer {jwt_token}`
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "rp": {
+      "name": "string",
+      "id": "string"
+    },
+    "user": {
+      "id": "string",
+      "name": "string",
+      "displayName": "string"
+    },
+    "challenge": "string",
+    "pubKeyCredParams": [
+      {
+        "type": "public-key",
+        "alg": -7
+      }
+    ],
+    "timeout": 60000,
+    "authenticatorSelection": {
+      "authenticatorAttachment": "platform",
+      "userVerification": "required"
+    }
+  }
+}
+```
+
+### 获取认证选项
+
+**POST** `/api/passkey/authentication-options`
+
+请求体：
+```json
+{
+  "username": "string"
+}
+```
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "challenge": "string",
+    "timeout": 60000,
+    "rpId": "string",
+    "userVerification": "required"
+  }
+}
+```
+
+### 注册通行密钥
+
+**POST** `/api/passkey/register`
+
+请求体：
+```json
+{
+  "response": {
+    "id": "string",
+    "rawId": "string",
+    "type": "public-key",
+    "response": {
+      "clientDataJSON": "string",
+      "attestationObject": "string"
+    }
+  },
+  "deviceName": "string"
+}
+```
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "message": "通行密钥注册成功"
+  }
+}
+```
+
+### 认证通行密钥
+
+**POST** `/api/passkey/authenticate`
+
+请求体：
+```json
+{
+  "response": {
+    "id": "string",
+    "rawId": "string",
+    "type": "public-key",
+    "response": {
+      "clientDataJSON": "string",
+      "authenticatorData": "string",
+      "signature": "string",
+      "userHandle": "string"
+    }
+  },
+  "challenge": "string"
+}
+```
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "token": "jwt_token_string",
+    "user": {
+      "username": "string",
+      "name": "string",
+      "email": "string"
+    }
+  }
+}
+```
+
+### 获取用户通行密钥
+
+**GET** `/api/passkey/user-passkeys`
+
+请求头：
+- `Authorization: Bearer {jwt_token}`
+
+响应：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "number",
+      "deviceName": "string",
+      "deviceType": "string",
+      "createdAt": "string",
+      "lastUsedAt": "string"
+    }
+  ]
+}
+```
+
+### 删除通行密钥
+
+**DELETE** `/api/passkey/{passkeyId}`
+
+请求头：
+- `Authorization: Bearer {jwt_token}`
+
+响应：
+```json
+{
+  "success": true,
+  "data": true
+}
+```
 
 ## 错误处理
 
@@ -540,190 +604,84 @@ GET /api/photos/recommend?excludeIds=1,2,3
 - `AUTH_ERROR`: 认证失败
 - `VALIDATION_ERROR`: 参数验证失败
 - `NOT_FOUND`: 资源不存在
-- `PERMISSION_DENIED`: 权限不足
+- `UNAUTHORIZED`: 未授权
+- `REGISTRATION_ERROR`: 通行密钥注册失败
+- `AUTHENTICATION_ERROR`: 通行密钥认证失败
 - `SERVER_ERROR`: 服务器内部错误
 
-## 前端集成
+## 文件存储
 
-### API 服务配置
+### 外部存储
 
-前端 API 服务位于 `src/api/photoApi.js`，包含以下主要功能：
+- 文件存储在配置的外部目录中（默认：`E:\图`）
+- 文件按文件夹组织
+- 通过 `/external/{folder}/{filename}` 访问
+- 支持多个存储路径
 
-1. **Axios 实例配置**
-   - 基础 URL: `http://localhost:5085/api`
-   - 超时时间: 10秒
-   - 请求/响应拦截器
+### 图片压缩
 
-2. **API 方法**
-   - `login(credentials)`: 用户登录（传统方式）
-   - `secureLogin(secureCredentials)`: 安全用户登录（推荐使用）
-   - `getNonceSeed()`: 获取nonce种子
-   - `validateToken()`: 验证令牌有效性
-   - `getPhotos(params)`: 获取照片列表
-   - `getPhotosPaginated(page, limit)`: 分页获取照片列表（用于懒加载）
-   - `getPhoto(id)`: 获取单个照片
-   - `createPhoto(photoData)`: 创建照片
-   - `updatePhoto(id, photoData)`: 更新照片
-   - `deletePhoto(id)`: 删除照片
-   - `getTags()`: 获取所有标签（包含使用次数）
-   - `getFolders()`: 获取所有文件夹
-   - `getFoldersCount()`: 获取文件夹数量
-   - `getLocations()`: 获取所有地点
-   - `getLocationsCount()`: 获取地点数量
-   - `searchPhotos(query)`: 搜索照片
-   - `getRecommendPhotos(page, limit, excludeIds)`: 获取推荐照片（支持分页和去重）
-   - `uploadPhotos(formData)`: 上传图片（支持多文件）
-   - `getUncategorizedPhotos(page, limit)`: 获取未分类照片（支持分页）
+- 自动生成压缩版本
+- 压缩质量可配置（默认：60%）
+- 存储在 `compressed` 文件夹中
+- 保持与原文件相同的目录结构
 
-### 状态管理
+### EXIF 元数据
 
-应用使用 Pinia 进行状态管理：
+- 自动从上传的图片中提取EXIF信息
+- 存储在数据库中的JSON格式
+- 包含相机信息、拍摄时间、GPS位置等
 
-1. **认证状态** (`src/stores/authStore.js`)
-   - 用户信息管理
-   - 登录状态维护
-   - Token 存储
+## 安全说明
 
-2. **照片状态** (`src/stores/photoStore.js`)
-   - 照片数据管理
-   - 标签、文件夹、地点元数据
-   - 筛选和搜索功能
-   - 推荐照片功能
-   - 未分类照片管理
-   - 图片上传功能
-   - 懒加载功能（分页加载、滚动加载）
-   - 加载状态和错误处理
-   - **新增方法**：
-     - `loadFirstPage()`: 加载第一页数据
-     - `loadMorePhotos()`: 加载更多照片（懒加载）
-     - `loadMoreUncategorizedPhotos()`: 加载更多未分类照片（懒加载）
-     - `getTagsData()`: 按需获取标签数据
-     - `getFoldersData()`: 按需获取文件夹数据
-     - `getLocationsData()`: 按需获取地点数据
+### 认证安全
+- **推荐使用安全登录接口** 代替传统登录
+- **HMAC-SHA256签名**: 确保请求完整性
+- **时间戳验证**: 5分钟请求有效期
+- **Nonce机制**: 防止重放攻击
 
-### 主要组件
+### 传输安全
+- **强制HTTPS**: 生产环境必须启用HTTPS
+- **JWT令牌**: 包含用户身份信息
+- **通行密钥**: 支持WebAuthn无密码认证
 
-- **Home.vue**: 主界面，包含照片展示、筛选、推荐和未分类功能
-- **Login.vue**: 登录界面
-- **Sidebar.vue**: 侧边栏导航，包含标签、文件夹、地点、推荐和未分类页面
-- **FilterStatus.vue**: 筛选状态显示组件
-- **PhotoGrid.vue**: 瀑布流照片展示组件（支持懒加载）
-- **PhotoDialog.vue**: 照片详情对话框组件
-- **CategorizeDialog.vue**: 分类对话框组件，支持批量分类操作
-- **UploadZone.vue**: 拖拽上传组件，支持单张、多张和文件夹上传
-- 使用 Material Web Components 构建 UI
+### 文件安全
+- **文件类型验证**: 限制上传文件类型
+- **外部存储**: 文件存储在配置的目录中
+- **路径验证**: 防止目录遍历攻击
 
 ## 开发说明
 
 ### 本地开发
 
-1. 启动前端开发服务器：
+1. 启动后端服务器：
    ```bash
-   npm run dev
+   dotnet run
    ```
 
-2. 启动后端模拟服务器：
-   ```bash
-   npm run serve
-   ```
+2. 访问应用：`http://localhost:5085` 或 `https://localhost:7088`
 
-3. 访问应用：`http://localhost:3000`
+### 配置
 
-### 生产部署
+关键配置在 `appsettings.json`：
+- **JWT设置**: `Jwt:Key`, `Issuer`, `Audience`, `ExpireMinutes`
+- **外部存储**: `PhotoStorage:ExternalStoragePaths`
+- **图片压缩**: `ImageCompression:Quality`, `EnableCompress`
+- **通行密钥**: `Passkey:RelyingParty`
+- **推荐标签**: `RecommendTags`
 
-1. 构建前端：
-   ```bash
-   npm run build
-   ```
+### 数据库
 
-2. 配置真实 API 服务器地址
-
-3. 部署构建后的静态文件
-
-### 环境变量
-
-建议使用环境变量配置 API 基础 URL：
-
-```env
-VITE_API_BASE_URL=http://your-api-server.com/api
-```
-
-## 新功能说明
-
-### 图片压缩功能
-
-- **自动压缩**: 图片上传时自动生成压缩版本，减轻网络负担
-- **智能尺寸**: 最大宽度1024px，最大高度768px，保持宽高比
-- **质量优化**: 可配置压缩质量（默认80%），使用ImageMagick高质量压缩算法
-- **文件组织**: 压缩图片存储在`compressed`文件夹中，保持与原文件相同的目录结构
-- **格式支持**: 支持JPG、JPEG、PNG、BMP、WebP、GIF、TIFF等格式
-
-### 安全增强
-
-- **安全登录**: 新增安全登录接口，使用HMAC-SHA256签名验证
-- **防重放攻击**: 时间戳 + nonce 机制防止请求重放
-- **密码安全**: 前端bcrypt哈希 + 后端验证，避免明文传输
-- **请求完整性**: HMAC签名确保请求数据完整性
-- **时效性控制**: 5分钟请求有效期，防止过期请求
-
-### 懒加载优化
-
-- **分页加载**: 标签、文件夹、地点页面使用分页加载，首次只加载20张照片
-- **滚动加载**: 使用 Intersection Observer 监听滚动，自动加载下一页
-- **按需加载**: 侧边栏筛选数据按需加载，减少初始请求
-- **状态管理**: 支持加载中状态、没有更多数据提示
-- **推荐照片懒加载**: 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片，避免重复显示
-
-### 刷新功能
-
-- **全局刷新**: Header 添加刷新按钮，支持所有页面刷新
-- **状态反馈**: 刷新期间显示旋转动画和禁用状态
-- **成功通知**: 刷新后显示绿色 snackbar 通知获得的图片数量
-
-### 图片上传功能
-
-- **支持方式**: 拖拽上传、文件选择器
-- **支持格式**: 单张图片、多张图片、整个文件夹
-- **文件类型**: JPG、JPEG、PNG、GIF、BMP、WebP、SVG
-- **进度显示**: 实时上传进度条
-- **结果反馈**: 成功/失败状态通知
-- **自动压缩**: 上传时自动生成压缩版本，减轻网络负担
-
-### 未分类照片管理
-
-- **自动识别**: 根据标签、文件夹、地点、标题自动识别未分类照片
-- **批量分类**: 通过分类对话框进行批量分类操作
-- **进度跟踪**: 显示分类进度 (当前/总数)
-- **操作按钮**:
-  - 保存并下一张: 保存当前分类并自动进入下一张
-  - 下一张: 跳过当前图片，不保存分类
-  - 关闭: 退出分类流程
-
-## 安全最佳实践
-
-### 认证安全
-- **推荐使用安全登录接口** (`/auth/secure-login`) 代替传统登录
-- **前端实现**: 使用bcrypt哈希密码，HMAC-SHA256计算签名
-- **时间同步**: 使用服务器返回的时间戳进行时间同步
-- **Nonce管理**: 确保每个nonce只使用一次
-
-### 传输安全
-- **强制HTTPS**: 生产环境必须启用HTTPS
-- **请求签名**: 所有敏感请求应包含HMAC签名
-- **时效控制**: 请求应在5分钟内完成处理
+- 使用 SQLite 数据库
+- 数据库文件：`tagphotoalbum.db`
+- 自动创建和初始化数据
+- 支持照片、标签、用户、通行密钥等实体
 
 ## 注意事项
 
-1. 所有 API 请求都需要在请求头中包含认证 Token
-2. 照片上传功能需要额外的文件上传接口
+1. 所有 API 请求（除认证接口外）都需要在请求头中包含认证 Token
+2. 文件上传支持多文件同时上传
 3. 分页和筛选参数支持灵活的查询需求
 4. 错误处理机制确保应用稳定性
-5. 拖拽上传功能需要浏览器支持 File API 和 Directory API
-6. 分类对话框支持批量操作，提高分类效率
-7. 懒加载功能需要浏览器支持 Intersection Observer API
-8. 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片，避免重复显示
-9. 未分类页面现在支持分页懒加载，可以滚动加载更多未分类照片
-10. 筛选数据按需加载，减少初始请求数量
-11. **图片压缩**: 上传图片时自动生成压缩版本，客户端可根据网络状况选择加载原图或压缩图
-12. **压缩配置**: 压缩质量可在 `appsettings.json` 中配置，默认80%
-13. **安全要求**: 生产环境必须配置HTTPS和安全密钥
+5. 通行密钥功能需要浏览器支持 WebAuthn API
+6. 图片压缩功能可配置启用/禁用
+7. EXIF 数据自动提取，支持常见图片格式
