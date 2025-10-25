@@ -32,9 +32,9 @@ public class Passkey
     [Required]
     public string DeviceName { get; set; } = string.Empty;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-    public DateTime LastUsedAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastUsedAt { get; set; } = DateTime.Now;
 
     public bool IsActive { get; set; } = true;
 }

@@ -179,8 +179,8 @@ public class PasskeyService
                 Counter = 0,
                 DeviceType = "Platform Authenticator",
                 DeviceName = string.IsNullOrEmpty(deviceName) ? "Default Device" : deviceName,
-                CreatedAt = DateTime.UtcNow,
-                LastUsedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.Now,
+                LastUsedAt = DateTime.Now,
                 IsActive = true
             };
 
@@ -260,7 +260,7 @@ public class PasskeyService
             }
 
             // Update passkey usage
-            passkey.LastUsedAt = DateTime.UtcNow;
+            passkey.LastUsedAt = DateTime.Now;
             passkey.Counter++;
             await _context.SaveChangesAsync();
 
