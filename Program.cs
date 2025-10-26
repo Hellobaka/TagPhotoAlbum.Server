@@ -78,6 +78,7 @@ builder.Services.AddScoped<PhotoStorageService>();
 builder.Services.AddScoped<ImageCompressionService>();
 builder.Services.AddScoped<ExifService>();
 builder.Services.AddHostedService<PhotoSyncService>();
+builder.Services.AddHostedService<ConsoleCommandService>();
 
 var app = builder.Build();
 
