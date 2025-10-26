@@ -11,6 +11,47 @@ using NLog.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure server URLs from configuration
+var serverUrls = builder.Configuration["Server:Urls"];
+if (!string.IsNullOrEmpty(serverUrls))
+{
+    builder.WebHost.UseUrls(serverUrls.Split(';'));
+}
+
+// Configure PEM certificate if specified
+var certificatePath = builder.Configuration["Server:Certificate:Path"];
+var certificateKeyPath = builder.Configuration["Server:Certificate:KeyPath"];
+var certificatePassword = builder.Configuration["Server:Certificate:Password"];
+
+if (!string.IsNullOrEmpty(certificatePath) && File.Exists(certificatePath))
+{
+    if (!string.IsNullOrEmpty(certificateKeyPath) && File.Exists(certificateKeyPath))
+    {
+        // Use separate certificate and key files (PEM format)
+        builder.WebHost.ConfigureKestrel(serverOptions =>
+        {
+            serverOptions.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = System.Security.Cryptography.X509Certificates.X509Certificate2.CreateFromPemFile(
+                    certificatePath, certificateKeyPath);
+            });
+        });
+    }
+    else
+    {
+        // Use PFX certificate with password
+        builder.WebHost.ConfigureKestrel(serverOptions =>
+        {
+            serverOptions.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                // Load PFX certificate using recommended X509CertificateLoader
+                httpsOptions.ServerCertificate = System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12FromFile(
+                    certificatePath, certificatePassword);
+            });
+        });
+    }
+}
+
 // Configure NLog
 builder.Logging.ClearProviders();
 builder.Host.UseNLog();

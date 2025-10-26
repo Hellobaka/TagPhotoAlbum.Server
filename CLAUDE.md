@@ -84,11 +84,21 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
 
 ### Configuration
 Key configuration in `appsettings.json`:
+- **Server URLs**: `Server:Urls` - Comma-separated list of URLs to listen on (e.g., `"http://localhost:5085;https://localhost:7088"`)
+- **HTTPS Certificate**: `Server:Certificate` - Certificate configuration using modern .NET 9 X509CertificateLoader
+  - `Path` - Path to certificate file (.pem or .pfx)
+  - `KeyPath` - Path to private key file (.pem) - required for separate PEM files
+  - `Password` - Certificate password (for PFX files)
 - **External Storage Paths**: `PhotoStorage:ExternalStoragePaths` array
 - **Image Compression**: `ImageCompression:Quality`, `EnableCompress`
 - **JWT Settings**: `Jwt:Key`, `Issuer`, `Audience`, `ExpireMinutes`
 - **Passkey Settings**: `Passkey:RelyingParty` configuration
 - **Recommend Tags**: `RecommendTags` array for recommendation filtering
+
+### Environment-specific Configuration
+- `appsettings.Development.json` - Development environment settings
+- `appsettings.Production.json` - Production environment settings
+- Environment-specific settings override base `appsettings.json`
 
 ## Important Notes
 
