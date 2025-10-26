@@ -19,7 +19,7 @@ public class PhotoStorageService
         _externalStoragePaths = options.Value.ExternalStoragePaths;
         _primaryStoragePath = _externalStoragePaths.FirstOrDefault() ?? string.Empty;
 
-        _logger.Info("初始化PhotoStorageService - 存储路径数量: {StoragePathCount}", _externalStoragePaths.Length);
+        //_logger.Info("初始化PhotoStorageService - 存储路径数量: {StoragePathCount}", _externalStoragePaths.Length);
 
         // 确保所有外部存储目录存在
         foreach (var path in _externalStoragePaths)
