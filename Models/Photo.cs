@@ -9,19 +9,19 @@ public class Photo
     public ICollection<PhotoTag> Tags { get; set; } = [];
     public string Folder { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
-    public DateTime Date { get; set; } = DateTime.UtcNow;
+    public DateTime Date { get; set; } = DateTime.Now;
     public double FileSizeKB { get; set; } // 文件大小，单位为KB
     public string? ExifData { get; set; } // EXIF元数据，JSON格式
+    public double Rating { get; set; } // 评分，支持半分，范围0-5，默认0
 }
 
 public class Tag
 {
     public int Id { get; set; }
     public string Name { get; set; }
-    public ICollection<PhotoTag> PhotoTags { get; set; } // �������Ե�������
+    public ICollection<PhotoTag> PhotoTags { get; set; } 
 }
 
-// PhotoTag (������/����ʵ��)
 public class PhotoTag
 {
     public int PhotoId { get; set; }

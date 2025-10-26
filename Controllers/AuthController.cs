@@ -53,7 +53,7 @@ public class AuthController : ControllerBase
             }
 
             var token = _authService.GenerateJwtToken(user);
-            var serverTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var serverTimestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             var nextNonceSeed = _authService.GenerateNonceSeed();
 
             _logger.Info("用户登录成功 - 用户名: {Username}", request.Username);

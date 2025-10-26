@@ -7,4 +7,5 @@ public class PhotoUpdateRequest
     public List<string> Tags { get; set; } = [];
     public string Folder { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
+    public double? Rating { get; set; } = 0;
 }

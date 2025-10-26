@@ -15,6 +15,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Host.UseNLog();
 
+// Configure logging levels
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", Microsoft.Extensions.Logging.LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", Microsoft.Extensions.Logging.LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.StaticFiles", Microsoft.Extensions.Logging.LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", Microsoft.Extensions.Logging.LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc", Microsoft.Extensions.Logging.LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting", Microsoft.Extensions.Logging.LogLevel.Warning);
+
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -69,6 +77,7 @@ builder.Services.AddScoped<PasskeyService>();
 builder.Services.AddScoped<PhotoStorageService>();
 builder.Services.AddScoped<ImageCompressionService>();
 builder.Services.AddScoped<ExifService>();
+builder.Services.AddHostedService<PhotoSyncService>();
 
 var app = builder.Build();
 
@@ -106,10 +115,10 @@ app.UseAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var compressionService = scope.ServiceProvider.GetRequiredService<ImageCompressionService>();
-    var exifService = scope.ServiceProvider.GetRequiredService<ExifService>();
+    var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+    var logger = loggerFactory.CreateLogger("SeedData");
     context.Database.EnsureCreated();
-    SeedData.Initialize(exifService, compressionService, context, externalStoragePaths);
+    SeedData.Initialize(logger, context);
 }
 
 app.MapControllers();

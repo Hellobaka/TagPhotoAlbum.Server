@@ -347,7 +347,7 @@ public class PasskeyService
         {
             Challenge = challenge,
             UserId = userId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now
         };
 
         Challenges[challenge] = challengeData;
@@ -359,7 +359,7 @@ public class PasskeyService
         if (Challenges.TryGetValue(challenge, out var challengeData))
         {
             // Check if challenge is still valid (5 minutes)
-            if (DateTime.UtcNow - challengeData.CreatedAt < TimeSpan.FromMinutes(5))
+            if (DateTime.Now - challengeData.CreatedAt < TimeSpan.FromMinutes(5))
             {
                 return challengeData;
             }

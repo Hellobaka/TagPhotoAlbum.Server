@@ -41,13 +41,14 @@ public class PhotosController : ControllerBase
         [FromQuery] string? location = null,
         [FromQuery] string? tags = null,
         [FromQuery] string? searchQuery = null,
+        [FromQuery] string? ratings = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortOrder = "desc")
     {
         try
         {
-            _logger.Info("开始获取照片列表 - 页码: {Page}, 每页数量: {Limit}, 文件夹: {Folder}, 位置: {Location}, 标签: {Tags}, 搜索: {SearchQuery}, 排序字段: {SortBy}, 排序顺序: {SortOrder}",
-                page, limit, folder ?? "未指定", location ?? "未指定", tags ?? "未指定", searchQuery ?? "未指定", sortBy ?? "默认(日期)", sortOrder ?? "desc");
+            _logger.Info("开始获取照片列表 - 页码: {Page}, 每页数量: {Limit}, 文件夹: {Folder}, 位置: {Location}, 标签: {Tags}, 搜索: {SearchQuery}, 评分: {Ratings}, 排序字段: {SortBy}, 排序顺序: {SortOrder}",
+                page, limit, folder ?? "未指定", location ?? "未指定", tags ?? "未指定", searchQuery ?? "未指定", ratings ?? "未指定", sortBy ?? "默认(日期)", sortOrder ?? "desc");
             var query = _context.Photos.AsQueryable();
 
             // 默认排除未分类照片
@@ -85,36 +86,47 @@ public class PhotosController : ControllerBase
                 );
             }
 
+            // Apply rating filters
+            if (!string.IsNullOrEmpty(ratings))
+            {
+                var ratingList = ratings.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(r => double.TryParse(r, out var parsedRating) ? parsedRating : (double?)null)
+                    .Where(r => r.HasValue && r.Value >= 0 && r.Value <= 5)
+                    .Select(r => r!.Value)
+                    .ToList();
+
+                if (ratingList.Count > 0)
+                {
+                    query = query.Where(p => ratingList.Contains(double.Ceiling(p.Rating)));
+                }
+            }
+
             var total = await query.CountAsync();
 
             // 应用排序
             var isDescending = (sortOrder?.ToLower() ?? "desc") == "desc";
 
+            query = (sortBy?.ToLower()) switch
+            {
+                "filename" => isDescending
+                                        ? query.OrderByDescending(p => p.Title)
+                                        : query.OrderBy(p => p.Title),
+                "size" => isDescending
+                                        ? query.OrderByDescending(p => p.FileSizeKB)
+                                        : query.OrderBy(p => p.FileSizeKB),
+                "rating" => isDescending
+                                        ? query.OrderByDescending(p => p.Rating)
+                                        : query.OrderBy(p => p.Rating),
+                _ => isDescending
+                                        ? query.OrderByDescending(p => p.Date)
+                                        : query.OrderBy(p => p.Date),
+            };
             var photos = await query
                 .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
                 .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
 
-            switch (sortBy?.ToLower())
-            {
-                case "filename":
-                    photos = (isDescending
-                        ? photos.OrderByDescending(p => Path.GetFileName(p.FilePath))
-                        : photos.OrderBy(p => Path.GetFileName(p.FilePath))).ToList();
-                    break;
-                case "size":
-                    photos = (isDescending
-                        ? photos.OrderByDescending(p => p.FileSizeKB)
-                        : photos.OrderBy(p => p.FileSizeKB)).ToList();
-                    break;
-                case "date":
-                default:
-                    photos = (isDescending
-                        ? photos.OrderByDescending(p => p.Date)
-                        : photos.OrderBy(p => p.Date)).ToList();
-                    break;
-            }
             // 将FilePath转换为URL并转换为PhotoResponse
             var photosWithUrls = photos.Select(p => new PhotoResponse
             {
@@ -129,7 +141,8 @@ public class PhotosController : ControllerBase
                 FileSizeKB = p.FileSizeKB,
                 ExifData = p.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath),
+                Rating = p.Rating
             }).ToList();
 
             _logger.Info("成功获取照片列表 - 总数: {Total}, 返回数量: {Count}", total, photosWithUrls.Count);
@@ -198,7 +211,8 @@ public class PhotosController : ControllerBase
                 FileSizeKB = photo.FileSizeKB,
                 ExifData = photo.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath),
+                Rating = photo.Rating
             };
 
             _logger.Info("成功获取照片详情 - 照片ID: {PhotoId}, 标题: {Title}", id, photoWithUrl.Title);
@@ -254,7 +268,7 @@ public class PhotosController : ControllerBase
                 Description = photoCreate.Description,
                 Folder = photoCreate.Folder,
                 Location = photoCreate.Location,
-                Date = DateTime.UtcNow
+                Date = DateTime.Now
             };
 
             // 处理标签
@@ -290,7 +304,8 @@ public class PhotosController : ControllerBase
                 FileSizeKB = photo.FileSizeKB,
                 ExifData = photo.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath),
+                Rating = photo.Rating
             };
 
             _logger.Info("成功创建照片 - 照片ID: {PhotoId}, 标题: {Title}", photo.Id, photoWithUrl.Title);
@@ -351,6 +366,7 @@ public class PhotosController : ControllerBase
             photo.Description = photoUpdate.Description;
             photo.Folder = photoUpdate.Folder;
             photo.Location = photoUpdate.Location;
+            photo.Rating = photoUpdate.Rating ?? 0;
 
             // 处理标签更新
             if (photoUpdate.Tags != null)
@@ -395,7 +411,8 @@ public class PhotosController : ControllerBase
                 FileSizeKB = photo.FileSizeKB,
                 ExifData = photo.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath)
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath),
+                Rating = photo.Rating
             };
 
             _logger.Info("成功获取照片详情 - 照片ID: {PhotoId}, 标题: {Title}", id, photoWithUrl.Title);
@@ -600,7 +617,7 @@ public class PhotosController : ControllerBase
 
                 // 使用外部存储保存文件
                 var folder = "未分类";
-                var filePath = await _photoStorageService.SaveFileAsync(file, folder);
+                var filePath = await _photoStorageService.SaveFileAsync(file);
                 var compressedPath = await _imageCompressionService.CompressImageAsync(filePath);
 
                 // 获取文件大小（单位：KB）
@@ -618,7 +635,7 @@ public class PhotosController : ControllerBase
                 {
                     // 更新现有照片记录
                     existingPhoto.Title = Path.GetFileNameWithoutExtension(file.FileName);
-                    existingPhoto.Date = DateTime.UtcNow;
+                    existingPhoto.Date = DateTime.Now;
                     existingPhoto.FileSizeKB = fileSizeKB;
                     existingPhoto.ExifData = exifData;
                     uploadedPhotos.Add(existingPhoto);
@@ -634,7 +651,7 @@ public class PhotosController : ControllerBase
                         Tags = [],
                         Folder = folder,
                         Location = string.Empty,
-                        Date = DateTime.UtcNow,
+                        Date = DateTime.Now,
                         FileSizeKB = fileSizeKB,
                         ExifData = exifData
                     };

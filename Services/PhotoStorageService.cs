@@ -35,17 +35,12 @@ public class PhotoStorageService
     /// <summary>
     /// 保存上传的文件到外部存储
     /// </summary>
-    public async Task<string> SaveFileAsync(IFormFile file, string folder)
+    public async Task<string> SaveFileAsync(IFormFile file)
     {
-        _logger.Info("开始保存文件 - 文件名: {FileName}, 文件夹: {Folder}", file.FileName, folder);
-
-        if (string.IsNullOrEmpty(folder))
-        {
-            folder = "未分类";
-        }
+        _logger.Info("开始保存文件 - 文件名: {FileName}", file.FileName);
 
         // 使用主存储路径
-        var folderPath = Path.Combine(_primaryStoragePath, folder);
+        var folderPath = _primaryStoragePath;
         if (!Directory.Exists(folderPath))
         {
             Directory.CreateDirectory(folderPath);
@@ -222,5 +217,30 @@ public class PhotoStorageService
     public string GetPrimaryStoragePath()
     {
         return _primaryStoragePath;
+    }
+
+    public DateTime GetFileDate(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException(filePath);
+        }
+        var createTime = File.GetCreationTime(filePath);
+        var lastModifyTime = File.GetLastWriteTime(filePath);
+        var lastAccessTime = File.GetLastAccessTime(filePath);
+        if (createTime.Year > 2000)
+        {
+            return createTime;
+        }
+        if (lastModifyTime.Year > 2000)
+        {
+            return lastModifyTime;
+        }
+        if (lastAccessTime.Year > 2000)
+        {
+            return lastAccessTime;
+        }
+
+        return DateTime.Now;
     }
 }
