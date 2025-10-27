@@ -37,7 +37,7 @@ if (!string.IsNullOrEmpty(certificatePath) && File.Exists(certificatePath))
                 byte[] pfxBytes = pemCert.Export(X509ContentType.Pfx);
                 httpsOptions.ServerCertificate = X509CertificateLoader.LoadPkcs12(pfxBytes, null);
             });
-            Console.WriteLine("Certificate loaded successfully by Kestrel.");
+            Console.WriteLine("PEM Certificate loaded successfully by Kestrel.");
         });
     }
     else
@@ -48,8 +48,9 @@ if (!string.IsNullOrEmpty(certificatePath) && File.Exists(certificatePath))
             serverOptions.ConfigureHttpsDefaults(httpsOptions =>
             {
                 // Load PFX certificate using recommended X509CertificateLoader
-                httpsOptions.ServerCertificate = System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12FromFile(
+                httpsOptions.ServerCertificate = X509CertificateLoader.LoadPkcs12FromFile(
                     certificatePath, certificatePassword);
+                Console.WriteLine("PFX Certificate loaded successfully by Kestrel.");
             });
         });
     }
