@@ -2,12 +2,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using NLog;
+using NLog.Web;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using TagPhotoAlbum.Server.Data;
 using TagPhotoAlbum.Server.Models;
 using TagPhotoAlbum.Server.Services;
-using NLog;
-using NLog.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,9 +33,11 @@ if (!string.IsNullOrEmpty(certificatePath) && File.Exists(certificatePath))
         {
             serverOptions.ConfigureHttpsDefaults(httpsOptions =>
             {
-                httpsOptions.ServerCertificate = System.Security.Cryptography.X509Certificates.X509Certificate2.CreateFromPemFile(
-                    certificatePath, certificateKeyPath);
+                var pemCert = X509Certificate2.CreateFromPemFile(certificatePath, certificateKeyPath);
+                byte[] pfxBytes = pemCert.Export(X509ContentType.Pfx);
+                httpsOptions.ServerCertificate = X509CertificateLoader.LoadPkcs12(pfxBytes, null);
             });
+            Console.WriteLine("Certificate loaded successfully by Kestrel.");
         });
     }
     else
