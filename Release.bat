@@ -1,0 +1,1 @@
+﻿dotnet publish /p:PublishProfile=FolderProfile.pubxml -f net9.0-windows
