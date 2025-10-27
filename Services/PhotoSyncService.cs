@@ -149,7 +149,10 @@ public class PhotoSyncService : BackgroundService
     {
         try
         {
-            actualFiles.Add(file);
+            lock (actualFiles)
+            {
+                actualFiles.Add(file);
+            }
 
             // 为每个文件创建独立的scope和DbContext
             using var fileScope = _serviceProvider.CreateScope();

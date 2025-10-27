@@ -32,8 +32,6 @@ public class ImageCompressionService
     /// </summary>
     public async Task<string?> CompressImageAsync(string originalFilePath)
     {
-        _logger.Info("开始压缩图片 - 原文件路径: {OriginalFilePath}", originalFilePath);
-
         try
         {
             if (!_options.EnableCompress)
@@ -41,6 +39,7 @@ public class ImageCompressionService
                 _logger.Info("图片压缩功能未启用");
                 return null;
             }
+            _logger.Info("开始压缩图片 - 原文件路径: {OriginalFilePath}", originalFilePath);
 
             // 检查原文件是否存在
             if (!File.Exists(originalFilePath))
@@ -63,31 +62,29 @@ public class ImageCompressionService
             var fileName = Path.GetFileNameWithoutExtension(originalFilePath);
             var compressedFileName = $"{fileName}_compressed.jpg";
 
-            _logger.Info("准备压缩图片 - 文件名: {FileName}, 压缩文件名: {CompressedFileName}", fileName, compressedFileName);
-
             // 生成压缩文件的路径
             var compressedFilePath = await GetCompressedFilePathAsync(_options.CompressedFolder, compressedFileName);
-
-            _logger.Info("生成压缩文件路径: {CompressedFilePath}", compressedFilePath);
 
             // 使用ImageMagick压缩图片
             using var image = new MagickImage(originalFilePath);
 
             // 设置压缩质量
             image.Quality = _options.Quality;
-            _logger.Info("设置压缩质量: {Quality}", _options.Quality);
 
             // 确保压缩文件目录存在
             var compressedFileDir = Path.GetDirectoryName(compressedFilePath);
             if (!Directory.Exists(compressedFileDir))
             {
                 Directory.CreateDirectory(compressedFileDir!);
-                _logger.Info("创建压缩文件目录: {CompressedFileDir}", compressedFileDir);
             }
 
             // 保存压缩图片为JPEG格式
             await image.WriteAsync(compressedFilePath);
-            _logger.Info("图片压缩成功 - 压缩文件路径: {CompressedFilePath}", compressedFilePath);
+            long compressedFileLength = new FileInfo(compressedFilePath).Length;
+            long originalFileLength = new FileInfo(originalFilePath).Length;
+            double compressRate = compressedFileLength / (originalFileLength * 1.0);
+
+            _logger.Info("图片压缩成功 - 压缩文件路径: {CompressedFilePath}; 压缩后大小: {CompressedFileLength:f1} KB 压缩比: {CompressRate:f1}%", compressedFilePath, compressedFileLength / 1024.0, compressRate * 100);
 
             return compressedFilePath;
         }

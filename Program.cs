@@ -56,14 +56,6 @@ if (!string.IsNullOrEmpty(certificatePath) && File.Exists(certificatePath))
 builder.Logging.ClearProviders();
 builder.Host.UseNLog();
 
-// Configure logging levels
-builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", Microsoft.Extensions.Logging.LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", Microsoft.Extensions.Logging.LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.AspNetCore.StaticFiles", Microsoft.Extensions.Logging.LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", Microsoft.Extensions.Logging.LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc", Microsoft.Extensions.Logging.LogLevel.Warning);
-builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting", Microsoft.Extensions.Logging.LogLevel.Warning);
-
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -118,10 +110,23 @@ builder.Services.AddScoped<PasskeyService>();
 builder.Services.AddScoped<PhotoStorageService>();
 builder.Services.AddScoped<ImageCompressionService>();
 builder.Services.AddScoped<ExifService>();
-builder.Services.AddHostedService<PhotoSyncService>();
 builder.Services.AddHostedService<ConsoleCommandService>();
+builder.Services.AddHostedService<PhotoSyncService>();
 
 var app = builder.Build();
+
+// Log server URLs after building the app
+var programLogger = app.Services.GetRequiredService<ILogger<Program>>();
+var configuredUrls = builder.Configuration["Server:Urls"];
+if (!string.IsNullOrEmpty(configuredUrls))
+{
+    var urls = configuredUrls.Split(';');
+    programLogger.LogInformation("服务器将在以下地址启动: {Urls}", string.Join(", ", urls));
+}
+else
+{
+    programLogger.LogInformation("使用默认服务器地址");
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -132,6 +137,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 // Enable static file serving for uploads directory
+app.UseDefaultFiles(); 
 app.UseStaticFiles();
 
 // Enable static file serving for external storage

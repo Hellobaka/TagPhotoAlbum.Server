@@ -22,7 +22,6 @@ public class ConsoleCommandService : BackgroundService
     {
         _logger.LogInformation("控制台命令服务已启动");
         _logger.LogInformation("输入 'help' 查看可用命令");
-        Console.Write("> ");
 
         // 使用非阻塞的方式检查控制台输入
         while (!stoppingToken.IsCancellationRequested)
@@ -31,7 +30,6 @@ public class ConsoleCommandService : BackgroundService
             {
                 if (Console.KeyAvailable)
                 {
-                    Console.Write("> ");
                     var input = await Task.Run(() => Console.ReadLine(), stoppingToken);
 
                     if (string.IsNullOrWhiteSpace(input))

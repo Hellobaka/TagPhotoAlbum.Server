@@ -12,8 +12,10 @@ public static class SeedData
     {
         if (context.Users.Any() || context.Photos.Any())
         {
+            _logger.LogInformation("数据库已包含数据，跳过种子数据初始化");
             return; // Database has been seeded
         }
+
         string password = Guid.NewGuid().ToString("N");
         // Add default user
         var user = new User
@@ -25,6 +27,6 @@ public static class SeedData
         };
         context.Users.Add(user);
         context.SaveChanges();
-        _logger.LogInformation($"初始用户已创建。用户名：admin; 密码：{password};");
+        _logger.LogInformation("初始用户已创建。用户名：admin; 密码：{Password}", password);
     }
 }
