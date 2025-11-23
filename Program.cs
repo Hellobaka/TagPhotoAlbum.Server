@@ -137,8 +137,10 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-
-app.UseHttpsRedirection();
+else
+{
+    app.UseHttpsRedirection();
+}
 
 // Enable static file serving for uploads directory
 app.UseDefaultFiles(); 
@@ -174,5 +176,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapControllers();
+
+// Add SPA fallback for client-side routing
+app.MapFallbackToFile("/index.html");
 
 app.Run();
