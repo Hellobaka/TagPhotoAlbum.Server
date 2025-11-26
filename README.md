@@ -142,6 +142,10 @@ Release.bat
 > [!INFO]
 > **监听任意地址**：使用 `http://[::]:端口` (IPv6) 或 `http://0.0.0.0:端口` (IPv4) 可监听所有网络接口
 
+## 📄 许可证
+
+本项目采用 [GPL-3.0 license](./LICENSE) 许可证。
+
 ---
 <div align="center">
 
