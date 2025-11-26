@@ -4,13 +4,13 @@
 
 ## 🎯 前端项目
 
-**Vue 3 前端应用**: [TagPhotoAlbum](https://github.com/Helloabaka/TagPhotoAlbum) 🌟
+**Vue 3 前端应用**: [TagPhotoAlbum](https://github.com/Hellobaka/TagPhotoAlbum) 🌟
 
 ## 🚀 构建说明
 
 ```bash
 # 克隆并运行
-git clone https://github.com/Helloabaka/TagPhotoAlbum.Server.git
+git clone https://github.com/Hellobaka/TagPhotoAlbum.Server.git
 cd TagPhotoAlbum.Server
 dotnet run
 ```
@@ -139,7 +139,7 @@ Release.bat
 }
 ```
 
-> [!INFO]
+> [!TIP]
 > **监听任意地址**：使用 `http://[::]:端口` (IPv6) 或 `http://0.0.0.0:端口` (IPv4) 可监听所有网络接口
 
 ## 📄 许可证
