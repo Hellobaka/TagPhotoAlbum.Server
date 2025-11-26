@@ -143,5 +143,8 @@ Release.bat
 > **监听任意地址**：使用 `http://[::]:端口` (IPv6) 或 `http://0.0.0.0:端口` (IPv4) 可监听所有网络接口
 
 ---
+<div align="center">
 
 Made with ❤️(Claude Code) using ASP.NET Core 9.0
+
+</div>
