@@ -144,4 +144,4 @@ Release.bat
 
 ---
 
-Made with ❤️ using ASP.NET Core 9.0
+Made with ❤️(Claude Code) using ASP.NET Core 9.0
