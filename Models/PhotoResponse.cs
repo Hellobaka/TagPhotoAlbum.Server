@@ -27,6 +27,10 @@ public class PhotoResponse
     public bool HasCompressedImage { get; set; }
 
     public double Rating { get; set; } // 评分，支持半分，范围0-5，默认0
+
+    public int? Width { get; set; } // 图片宽度
+
+    public int? Height { get; set; } // 图片高度
 }
 
 public class UpdateRatingRequest

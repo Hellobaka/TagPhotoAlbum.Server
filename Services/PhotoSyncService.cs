@@ -76,7 +76,7 @@ public class PhotoSyncService : BackgroundService
             _logger.LogInformation("扫描存储路径: {StoragePath}", storagePath);
 
             // 获取所有支持的图片文件
-            var supportedExtensions = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".svg" };
+            var supportedExtensions = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp" };
             var files = Directory.GetFiles(storagePath)
                 .Where(file => supportedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()));
 
@@ -167,13 +167,27 @@ public class PhotoSyncService : BackgroundService
 
             if (existingPhoto != null)
             {
-                // 文件已存在，跳过
+                // 文件已存在，检查是否需要补充宽高
+                if (existingPhoto.Width == null || existingPhoto.Height == null)
+                {
+                    var dimensions = exifService.GetImageDimensions(file);
+                    if (dimensions != null)
+                    {
+                        existingPhoto.Width = dimensions.Value.Width;
+                        existingPhoto.Height = dimensions.Value.Height;
+                        _logger.LogInformation("补充图片尺寸 - 文件: {FilePath}, 宽度: {Width}, 高度: {Height}",
+                            file, dimensions.Value.Width, dimensions.Value.Height);
+                    }
+                }
                 return;
             }
 
             // 创建新的照片记录
             var fileInfoObj = new FileInfo(file);
             var fileSizeKB = fileInfoObj.Exists ? Math.Round(fileInfoObj.Length / 1024.0, 2) : 0;
+
+            // 获取图片尺寸
+            var imageDimensions = exifService.GetImageDimensions(file);
 
             var photo = new Photo
             {
@@ -186,7 +200,9 @@ public class PhotoSyncService : BackgroundService
                 FileSizeKB = fileSizeKB,
                 ExifData = exifService.ExtractExifData(file),
                 Tags = [],
-                Rating = 0 // 默认评分为0
+                Rating = 0, // 默认评分为0
+                Width = imageDimensions?.Width,
+                Height = imageDimensions?.Height
             };
 
             lock (newPhotos)

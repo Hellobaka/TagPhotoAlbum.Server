@@ -142,7 +142,9 @@ public class PhotosController : ControllerBase
                 ExifData = p.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath),
-                Rating = p.Rating
+                Rating = p.Rating,
+                Width = p.Width,
+                Height = p.Height
             }).ToList();
 
             _logger.Info("成功获取照片列表 - 总数: {Total}, 返回数量: {Count}", total, photosWithUrls.Count);
@@ -212,7 +214,9 @@ public class PhotosController : ControllerBase
                 ExifData = photo.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath),
-                Rating = photo.Rating
+                Rating = photo.Rating,
+                Width = photo.Width,
+                Height = photo.Height
             };
 
             _logger.Info("成功获取照片详情 - 照片ID: {PhotoId}, 标题: {Title}", id, photoWithUrl.Title);
@@ -305,7 +309,9 @@ public class PhotosController : ControllerBase
                 ExifData = photo.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath),
-                Rating = photo.Rating
+                Rating = photo.Rating,
+                Width = photo.Width,
+                Height = photo.Height
             };
 
             _logger.Info("成功创建照片 - 照片ID: {PhotoId}, 标题: {Title}", photo.Id, photoWithUrl.Title);
@@ -412,7 +418,9 @@ public class PhotosController : ControllerBase
                 ExifData = photo.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(photo.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(photo.FilePath),
-                Rating = photo.Rating
+                Rating = photo.Rating,
+                Width = photo.Width,
+                Height = photo.Height
             };
 
             _logger.Info("成功获取照片详情 - 照片ID: {PhotoId}, 标题: {Title}", id, photoWithUrl.Title);
@@ -554,7 +562,10 @@ public class PhotosController : ControllerBase
                 FileSizeKB = p.FileSizeKB,
                 ExifData = p.ExifData,
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
-                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath)
+                HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath),
+                Rating = p.Rating,
+                Width = p.Width,
+                Height = p.Height
             }).OrderBy(p => Guid.NewGuid()).ToList();
 
             _logger.Info("成功获取推荐照片 - 返回数量: {Count}", photosWithUrls.Count);
@@ -607,7 +618,7 @@ public class PhotosController : ControllerBase
             foreach (var file in files)
             {
                 // 验证文件类型
-                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg" };
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
                 var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
                 if (!allowedExtensions.Contains(fileExtension))
@@ -627,6 +638,9 @@ public class PhotosController : ControllerBase
                 // 提取EXIF信息
                 var exifData = _exifService.ExtractExifData(filePath);
 
+                // 获取图片尺寸
+                var dimensions = _exifService.GetImageDimensions(filePath);
+
                 // 检查是否已存在同名照片记录，如果存在则更新
                 var existingPhoto = await _context.Photos
                     .FirstOrDefaultAsync(p => p.FilePath == filePath);
@@ -638,6 +652,8 @@ public class PhotosController : ControllerBase
                     existingPhoto.Date = DateTime.Now;
                     existingPhoto.FileSizeKB = fileSizeKB;
                     existingPhoto.ExifData = exifData;
+                    existingPhoto.Width = dimensions?.Width;
+                    existingPhoto.Height = dimensions?.Height;
                     uploadedPhotos.Add(existingPhoto);
                 }
                 else
@@ -653,7 +669,9 @@ public class PhotosController : ControllerBase
                         Location = string.Empty,
                         Date = DateTime.Now,
                         FileSizeKB = fileSizeKB,
-                        ExifData = exifData
+                        ExifData = exifData,
+                        Width = dimensions?.Width,
+                        Height = dimensions?.Height
                     };
 
                     _context.Photos.Add(photo);
@@ -678,6 +696,8 @@ public class PhotosController : ControllerBase
                 CompressedFilePath = _imageCompressionService.GetCompressedFileUrl(p.FilePath),
                 HasCompressedImage = _imageCompressionService.CompressedFileExists(p.FilePath),
                 ExifData = p.ExifData,
+                Width = p.Width,
+                Height = p.Height
             }).ToList();
 
             _logger.Info("成功上传照片 - 上传数量: {UploadedCount}, 总文件数量: {TotalFiles}",

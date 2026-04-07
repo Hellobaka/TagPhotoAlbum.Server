@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management application. It provides photo storage, tagging, categorization, and search functionality with JWT-based authentication.
+TagPhotoAlbum.Server is an ASP.NET Core backend API for a photo management application. It provides photo storage, tagging, categorization, and search functionality with JWT-based authentication.
 
 ## Development Commands
 
@@ -12,6 +12,7 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
 - `dotnet build` - Build the project
 - `dotnet run` - Run the development server (defaults to http://localhost:5085 and https://localhost:7088)
 - `dotnet watch` - Run with hot reload for development
+- `Release.bat` - Production build (uses `dotnet publish` with FolderProfile)
 
 ### Database
 - Uses SQLite with Entity Framework Core
@@ -28,19 +29,21 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
   - `MetadataController.cs`: Tags, folders, and locations metadata
   - `PasskeyController.cs`: WebAuthn passkey authentication
 - **Models/**: Data models and API response types
-  - `Photo.cs`: Photo entity with file path, title, tags, folder, location, date
+  - `Photo.cs`: Photo entity with file path, title, tags, folder, location, date, rating, EXIF data
   - `User.cs`: User entity for authentication
-  - `ApiResponse.cs`: Standard API response wrapper with success flag, data, error, pagination, and message
+  - `ApiResponse.cs`: Standard API response wrapper
   - `Passkey.cs`: WebAuthn passkey storage
 - **Data/**: Database context and seed data
   - `AppDbContext.cs`: Entity Framework context with SQLite configuration
   - `SeedData.cs`: Initial sample photos and user data
-- **Services/**: Business logic services
+- **Services/**: Business logic and background services
   - `AuthService.cs`: Authentication and JWT token generation
   - `PhotoStorageService.cs`: External file storage management with multiple path support
-  - `ImageCompressionService.cs`: Image compression with configurable quality
+  - `ImageCompressionService.cs`: Image compression with configurable quality (uses Magick.NET)
   - `ExifService.cs`: EXIF metadata extraction
   - `PasskeyService.cs`: WebAuthn passkey management
+  - `PhotoSyncService.cs`: Background service that scans external storage for new/deleted images
+  - `ConsoleCommandService.cs`: Interactive console commands (help, changepassword, exit)
 
 ### API Design
 - **Base URL**: `/api`
@@ -51,7 +54,7 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
 ### Key Features
 - **Photo Management**: Full CRUD operations with filtering by folder, location, and tags
 - **File Upload**: Multi-file upload with external storage system
-  - Files stored in multiple configurable external directories (default: `E:\图`)
+  - Files stored in multiple configurable external directories (default: `E:\TestPic`)
   - Preserves original filenames
   - Automatically overwrites existing files with same name
   - Updates existing photo records when re-uploading same file
@@ -61,11 +64,13 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
   - Automatic file movement when folder is changed
   - Automatic cleanup of empty directories
   - Support for multiple storage paths with automatic path detection
+- **Photo Sync**: Background service scans external storage at configurable intervals (default: 60 minutes) to auto-detect new images and remove records for deleted files
+- **Console Commands**: Interactive console available at runtime: `help`, `changepassword`, `exit`
 - **Search**: Full-text search across title, description, tags, folder, and location
 - **Metadata**: Dynamic extraction of tags, folders, and locations from existing photos
 - **Uncategorized Photos**: Photos in "未分类" folder (folder-based classification)
 - **Recommendations**: Art-focused photo recommendations with random selection
-- **Image Compression**: Automatic image compression with configurable quality
+- **Image Compression**: Automatic image compression with configurable quality (uses Magick.NET)
 - **EXIF Extraction**: Automatic extraction of EXIF metadata from uploaded images
 - **Passkey Authentication**: WebAuthn support for passwordless authentication
 
@@ -84,15 +89,18 @@ TagPhotoAlbum.Server is an ASP.NET Core 9.0 backend API for a photo management a
 
 ### Configuration
 Key configuration in `appsettings.json`:
-- **Server URLs**: `Server:Urls` - Comma-separated list of URLs to listen on (e.g., `"http://localhost:5085;https://localhost:7088"`)
-- **HTTPS Certificate**: `Server:Certificate` - Certificate configuration using modern .NET 9 X509CertificateLoader
+- **Server URLs**: `Server:Urls` - Comma-separated list of URLs to listen on
+  - Local development: `"http://localhost:5085;https://localhost:7088"`
+  - Listen on all interfaces: `"http://[::]:5085;https://[::]:7088"` or `"http://0.0.0.0:5085"`
+- **HTTPS Certificate**: `Server:Certificate` - Certificate configuration using X509CertificateLoader
   - `Path` - Path to certificate file (.pem or .pfx)
   - `KeyPath` - Path to private key file (.pem) - required for separate PEM files
   - `Password` - Certificate password (for PFX files)
 - **External Storage Paths**: `PhotoStorage:ExternalStoragePaths` array
-- **Image Compression**: `ImageCompression:Quality`, `EnableCompress`
+- **Image Compression**: `ImageCompression:Quality`, `EnableCompress`, `CompressedFolder`
+- **Photo Sync**: `PhotoSync:SyncIntervalMinutes` - Background sync interval (default: 60)
 - **JWT Settings**: `Jwt:Key`, `Issuer`, `Audience`, `ExpireMinutes`
-- **Passkey Settings**: `Passkey:RelyingParty` configuration
+- **Passkey Settings**: `Passkey:RelyingParty` configuration (requires HTTPS for production)
 - **Recommend Tags**: `RecommendTags` array for recommendation filtering
 
 ### Environment-specific Configuration
@@ -102,8 +110,8 @@ Key configuration in `appsettings.json`:
 
 ## Important Notes
 
-- **External Storage**: Files are stored in multiple configured external directories (default: `E:\图`)
-- **Database Storage**: Photos store absolute file paths in `FilePath` field
+- **External Storage**: Files are stored in multiple configured external directories (configurable via `PhotoStorage:ExternalStoragePaths`)
+- **Database Storage**: Photos store absolute file paths in `FilePath` field; tags use many-to-many relationship via `PhotoTag` join table
 - **File Organization**: Files are automatically organized by folder structure
 - **File Movement**: When folder is changed, files are automatically moved to the new folder directory
 - **Static File Serving**: External storage is served via `/external` URL path
@@ -111,12 +119,14 @@ Key configuration in `appsettings.json`:
 - **Default Photo List**: (`GET /api/photos`) excludes photos in "未分类" folder unless explicitly filtered by folder
 - **Uncategorized Photos**: Defined as photos in "未分类" folder
 - **File Cleanup**: Empty directories are automatically cleaned up when files are moved or deleted
-- **Configuration**: External storage paths are configurable via `appsettings.json` as an array
-- **Data Migration**: Existing data can be discarded as test data is not important
+- **Photo Sync**: Background service automatically syncs database with external storage files
+- **Console Commands**: Runtime commands available: `help`, `changepassword`, `exit`
 - **Authentication**: Supports traditional login, secure login with HMAC signatures, and WebAuthn passkeys
-- **Image Compression**: Automatic compression with configurable quality (default: 60%)
-- **EXIF Data**: Automatically extracted from uploaded images and stored in database
+- **Image Compression**: Automatic compression using Magick.NET (configurable quality, default: 60%)
+- **EXIF Data**: Automatically extracted from uploaded images and stored in database as JSON
 - **Logging**: Uses NLog for comprehensive logging throughout the application
+- **Frontend**: Vue 3 frontend available at [TagPhotoAlbum](https://github.com/Hellobaka/TagPhotoAlbum)
+- **Deployment**: Run `Release.bat` for production build; place frontend files in `wwwroot` folder
 
 ## Development Workflow
 

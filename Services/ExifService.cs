@@ -266,4 +266,40 @@ public class ExifService
 
         return results;
     }
+
+    /// <summary>
+    /// 获取图片尺寸
+    /// </summary>
+    /// <param name="filePath">图片文件路径</param>
+    /// <returns>宽度和高度，如果无法获取则返回 null</returns>
+    public (int? Width, int? Height)? GetImageDimensions(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                _logger.Warn("文件不存在，无法获取尺寸: {FilePath}", filePath);
+                return null;
+            }
+
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            var supportedFormats = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+
+            if (!supportedFormats.Contains(extension))
+            {
+                _logger.Debug("文件格式不支持获取尺寸: {Extension}", extension);
+                return null;
+            }
+
+            using var image = new MagickImage(filePath);
+            _logger.Debug("获取图片尺寸成功 - 文件: {FilePath}, 宽度: {Width}, 高度: {Height}",
+                filePath, image.Width, image.Height);
+            return ((int? Width, int? Height)?)(image.Width, image.Height);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "获取图片尺寸失败: {FilePath}", filePath);
+            return null;
+        }
+    }
 }
