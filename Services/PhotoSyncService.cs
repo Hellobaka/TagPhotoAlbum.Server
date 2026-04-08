@@ -175,6 +175,7 @@ public class PhotoSyncService : BackgroundService
                     {
                         existingPhoto.Width = dimensions.Value.Width;
                         existingPhoto.Height = dimensions.Value.Height;
+                        await fileContext.SaveChangesAsync();
                         _logger.LogInformation("补充图片尺寸 - 文件: {FilePath}, 宽度: {Width}, 高度: {Height}",
                             file, dimensions.Value.Width, dimensions.Value.Height);
                     }
