@@ -171,7 +171,7 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
     var logger = loggerFactory.CreateLogger("SeedData");
-    context.Database.Migrate();
+    context.Database.EnsureCreated();
     SeedData.Initialize(logger, context);
 }
 
