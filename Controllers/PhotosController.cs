@@ -544,9 +544,11 @@ public class PhotosController : ControllerBase
             // 随机选择照片
             var photos = await query
                 .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
+                .ToListAsync();
+
+            photos = photos.OrderBy(x => Guid.NewGuid())
                 .Take(limit)
-                .ToListAsync()
-                ;
+                .ToList();
 
             // 将FilePath转换为URL并转换为PhotoResponse
             var photosWithUrls = photos.Select(p => new PhotoResponse
